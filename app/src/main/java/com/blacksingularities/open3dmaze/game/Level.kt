@@ -73,7 +73,7 @@ class Level(
     val worldH: Float = Geo.start(gh - 1) + Geo.size(gh - 1)
 
     /** Czas „par” w sekundach – poniżej niego trzecia gwiazdka. */
-    val parSeconds: Int = (pathLength / 2.4f + 3f + spec.holes * 0.4f).roundToInt()
+    val parSeconds: Int = (pathLength / 4.5f + 4f + spec.holes * 0.3f).roundToInt()
 
     /** Ściany do rysowania – policzone raz. */
     val walls: IntArray = (0 until gw * gh).filter { tiles[it] == T.WALL }.toIntArray()
@@ -92,23 +92,25 @@ object MazeGen {
 
     fun generate(spec: LevelSpec): Level {
         val rnd = Random(spec.seed)
-        val cw = spec.cw.coerceIn(2, 40)
-        val ch = spec.ch.coerceIn(2, 60)
+        val cw = spec.cw.coerceIn(2, 48)
+        val ch = spec.ch.coerceIn(2, 72)
         val gw = 2 * cw + 1
         val gh = 2 * ch + 1
         val t = ByteArray(gw * gh) { T.WALL }
         fun id(i: Int, j: Int) = j * gw + i
 
-        // Klasyczny „recursive backtracker” w wersji iteracyjnej.
+        // „Growing tree”: zwykle rozwija najnowszą gałąź (długie, kręte korytarze), czasem
+        // losową (więcej rozwidleń i zwodniczych odnóg niż w czystym backtrackerze).
         val visited = BooleanArray(cw * ch)
-        val stack = ArrayDeque<Int>()
-        stack.addLast(0)
+        val stack = ArrayList<Int>()
+        stack.add(0)
         visited[0] = true
         t[id(1, 1)] = T.FLOOR
         val dx = intArrayOf(1, 0, -1, 0)
         val dy = intArrayOf(0, 1, 0, -1)
         while (stack.isNotEmpty()) {
-            val c = stack.last()
+            val pick = if (rnd.nextFloat() < 0.72f) stack.lastIndex else rnd.nextInt(stack.size)
+            val c = stack[pick]
             val x = c % cw
             val y = c / cw
             val dirs = (0..3).filter {
@@ -116,14 +118,14 @@ object MazeGen {
                 nx in 0 until cw && ny in 0 until ch && !visited[ny * cw + nx]
             }
             if (dirs.isEmpty()) {
-                stack.removeLast(); continue
+                stack.removeAt(pick); continue
             }
             val d = dirs[rnd.nextInt(dirs.size)]
             val nx = x + dx[d]; val ny = y + dy[d]
             visited[ny * cw + nx] = true
             t[id(2 * x + 1 + dx[d], 2 * y + 1 + dy[d])] = T.FLOOR
             t[id(2 * nx + 1, 2 * ny + 1)] = T.FLOOR
-            stack.addLast(ny * cw + nx)
+            stack.add(ny * cw + nx)
         }
 
         // Pętle: część ślepych zaułków dostaje drugie wyjście.

@@ -122,12 +122,12 @@ fun CustomScreen(onBack: () -> Unit, onPlay: (LevelSpec) -> Unit) {
     Screen("Własny labirynt", onBack) {
         item {
             Panel(title = "Rozmiar") {
-                SliderRow("Szerokość", cw, 3f..20f, "${cw.roundToInt()} pól", steps = 16) { cw = it }
-                SliderRow("Wysokość", ch, 4f..30f, "${ch.roundToInt()} pól", steps = 25) { ch = it }
+                SliderRow("Szerokość", cw, 3f..40f, "${cw.roundToInt()} pól", steps = 36) { cw = it }
+                SliderRow("Wysokość", ch, 4f..60f, "${ch.roundToInt()} pól", steps = 55) { ch = it }
                 SliderRow("Pętle i skróty", braid, 0f..0.8f, "${(braid * 100).roundToInt()}%") { braid = it }
             }
             Panel(title = "Pułapki i pomoce") {
-                SliderRow("Dziury", holes, 0f..30f, "${holes.roundToInt()}", steps = 29) { holes = it }
+                SliderRow("Dziury", holes, 0f..60f, "${holes.roundToInt()}", steps = 59) { holes = it }
                 SliderRow("Lód", ice, 0f..0.6f, "${(ice * 100).roundToInt()}%") { ice = it }
                 SliderRow("Pary portali", portals, 0f..4f, "${portals.roundToInt()}", steps = 3) { portals = it }
                 SliderRow("Przyspieszacze", boosts, 0f..8f, "${boosts.roundToInt()}", steps = 7) { boosts = it }
@@ -236,7 +236,7 @@ fun SettingsScreen(onBack: () -> Unit) {
         item {
             Panel(title = "Sterowanie") {
                 ChoiceRow("Sposób", listOf("Pochylanie", "Palec"), s.control, { it }) { v -> Store.update { it.copy(control = v) } }
-                SliderRow("Czułość", s.sensitivity, 0.4f..2.2f, "×%.1f".format(s.sensitivity)) { v -> Store.update { it.copy(sensitivity = v) } }
+                SliderRow("Czułość", s.sensitivity, 0.3f..1.6f, "×%.1f".format(s.sensitivity)) { v -> Store.update { it.copy(sensitivity = v) } }
                 if (tilt.available) {
                     ActionRow(null, "Kalibruj", "Połóż telefon tak, jak chcesz grać, i dotknij") {
                         Store.update { it.copy(calX = tilt.rawX, calY = tilt.rawY) }
@@ -289,7 +289,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     }
                 }
                 SwitchRow("Ślad kulki", null, s.trail) { v -> Store.update { it.copy(trail = v) } }
-                SwitchRow("Kropki na podłodze", null, s.floorGrid) { v -> Store.update { it.copy(floorGrid = v) } }
+                SwitchRow("Minimapa", "W dużych labiryntach, które nie mieszczą się na ekranie", s.minimap) { v -> Store.update { it.copy(minimap = v) } }
                 SwitchRow("Stoper w trakcie gry", null, s.showTimer) { v -> Store.update { it.copy(showTimer = v) } }
             }
             Panel(title = "Dźwięk i wibracje") {

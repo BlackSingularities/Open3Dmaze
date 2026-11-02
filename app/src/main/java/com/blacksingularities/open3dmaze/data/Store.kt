@@ -23,6 +23,7 @@ data class Settings(
     val calY: Float = 0f,
     val autoUpdate: Boolean = true,
     val floorGrid: Boolean = true,
+    val minimap: Boolean = true,
 )
 
 data class Progress(
@@ -70,6 +71,7 @@ object Store {
             calY = p.getFloat("calY", 0f),
             autoUpdate = p.getBoolean("autoUpd", true),
             floorGrid = p.getBoolean("grid", true),
+            minimap = p.getBoolean("minimap", true),
         )
         val starStr = p.getString("stars", "") ?: ""
         val stars = starStr.split(',').mapNotNull { it.toIntOrNull() }
@@ -105,7 +107,7 @@ object Store {
             .putBoolean("haptics", s.haptics).putBoolean("sound", s.sound).putBoolean("trail", s.trail)
             .putBoolean("invPar", s.invertParallax).putBoolean("timer", s.showTimer)
             .putFloat("calX", s.calX).putFloat("calY", s.calY)
-            .putBoolean("autoUpd", s.autoUpdate).putBoolean("grid", s.floorGrid)
+            .putBoolean("autoUpd", s.autoUpdate).putBoolean("grid", s.floorGrid).putBoolean("minimap", s.minimap)
             .apply()
     }
 

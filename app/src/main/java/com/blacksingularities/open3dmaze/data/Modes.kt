@@ -25,12 +25,13 @@ object Campaign {
         val f = l / (PER_WORLD - 1f)
         val seed = 0x3D3D_0000L + i * 7919L
         fun lerp(a: Int, b: Int) = (a + (b - a) * f).roundToInt()
+        // Pierwsze poziomy mieszczą się na ekranie, dalsze są wielokrotnie większe – wtedy prowadzi kamera.
         return when (w) {
-            0 -> LevelSpec(seed, lerp(4, 8), lerp(6, 12), braid = 0.05f, holes = lerp(0, 2), gems = 3)
-            1 -> LevelSpec(seed, lerp(6, 9), lerp(9, 14), braid = 0.25f, holes = lerp(4, 14), gems = 4, checkpoints = if (l > 5) 1 else 0)
-            2 -> LevelSpec(seed, lerp(6, 10), lerp(9, 15), braid = 0.2f, holes = lerp(2, 8), gems = 4, ice = 0.25f + 0.3f * f, checkpoints = 1)
-            3 -> LevelSpec(seed, lerp(8, 11), lerp(12, 17), braid = 0.3f, holes = lerp(4, 12), gems = 5, ice = 0.12f, portals = lerp(1, 3), checkpoints = 2, boosts = lerp(2, 6))
-            else -> LevelSpec(seed, lerp(8, 12), lerp(12, 18), braid = 0.3f, holes = lerp(6, 16), gems = 5, ice = 0.15f, portals = lerp(1, 3), checkpoints = 2, boosts = lerp(2, 5), dark = true)
+            0 -> LevelSpec(seed, lerp(4, 9), lerp(6, 14), braid = 0.05f, holes = lerp(0, 3), gems = lerp(3, 4))
+            1 -> LevelSpec(seed, lerp(8, 14), lerp(12, 21), braid = 0.2f, holes = lerp(6, 22), gems = lerp(4, 6), checkpoints = lerp(1, 2))
+            2 -> LevelSpec(seed, lerp(11, 18), lerp(16, 27), braid = 0.2f, holes = lerp(8, 24), gems = 6, ice = 0.2f + 0.25f * f, checkpoints = lerp(1, 3))
+            3 -> LevelSpec(seed, lerp(14, 24), lerp(21, 36), braid = 0.25f, holes = lerp(12, 34), gems = lerp(6, 8), ice = 0.12f, portals = lerp(1, 4), checkpoints = lerp(2, 4), boosts = lerp(3, 10))
+            else -> LevelSpec(seed, lerp(18, 30), lerp(27, 46), braid = 0.25f, holes = lerp(16, 44), gems = 8, ice = 0.15f, portals = lerp(2, 4), checkpoints = lerp(3, 5), boosts = lerp(4, 10), dark = true)
         }
     }
 
@@ -62,22 +63,22 @@ class Session(val mode: Mode, var index: Int = 0, val custom: LevelSpec? = null)
         Mode.DAILY -> {
             val d = LocalDate.now()
             val seed = d.year * 10000L + d.monthValue * 100L + d.dayOfMonth
-            LevelSpec(seed * 31L, 10, 15, braid = 0.25f, holes = 9, gems = 5, ice = 0.15f, portals = 1, checkpoints = 1, boosts = 3)
+            LevelSpec(seed * 31L, 16, 24, braid = 0.25f, holes = 18, gems = 6, ice = 0.15f, portals = 2, checkpoints = 2, boosts = 5)
         }
         Mode.ENDLESS -> {
             val s = stage
-            LevelSpec(runSeed + s * 104729L, 4 + minOf(s, 10), 6 + minOf((s * 1.5f).roundToInt(), 14),
-                braid = 0.2f, holes = minOf(s * 2, 18), gems = 3, ice = if (s > 3) 0.15f else 0f,
-                portals = if (s > 5) 1 else 0, checkpoints = if (s > 4) 1 else 0, boosts = minOf(s / 2, 4))
+            LevelSpec(runSeed + s * 104729L, 5 + minOf(s * 2, 26), 7 + minOf(s * 3, 40),
+                braid = 0.2f, holes = minOf(s * 3, 40), gems = 3 + minOf(s / 2, 5), ice = if (s > 3) 0.15f else 0f,
+                portals = minOf(s / 4, 3), checkpoints = minOf(s / 3, 4), boosts = minOf(s / 2, 8))
         }
         Mode.DARK -> {
             val s = stage
-            LevelSpec(runSeed + s * 15485863L, 5 + minOf(s, 7), 8 + minOf(s, 9),
-                braid = 0.25f, holes = minOf(2 + s * 2, 14), gems = 3, checkpoints = 1, dark = true)
+            LevelSpec(runSeed + s * 15485863L, 6 + minOf(s * 2, 18), 9 + minOf(s * 3, 27),
+                braid = 0.25f, holes = minOf(2 + s * 3, 30), gems = 4, checkpoints = 1 + minOf(s / 3, 3), dark = true)
         }
         Mode.TIME_ATTACK -> LevelSpec(runSeed + stage * 7727L, 5 + minOf(stage / 2, 4), 7 + minOf(stage / 2, 6),
             braid = 0.35f, holes = minOf(stage, 8), gems = 6, boosts = 2)
-        Mode.ZEN -> LevelSpec(runSeed + stage * 31337L, 7 + minOf(stage, 5), 10 + minOf(stage, 8), braid = 0.4f, gems = 6)
+        Mode.ZEN -> LevelSpec(runSeed + stage * 31337L, 10 + minOf(stage * 3, 20), 15 + minOf(stage * 4, 30), braid = 0.4f, gems = 8)
         Mode.CUSTOM -> (custom ?: LevelSpec(1, 8, 12)).let { if (stage == 0) it else it.copy(seed = it.seed + stage) }
     }
 

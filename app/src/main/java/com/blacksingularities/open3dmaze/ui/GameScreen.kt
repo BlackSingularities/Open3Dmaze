@@ -217,7 +217,7 @@ fun GameScreen(session: Session, onExit: () -> Unit, onNextCampaign: (Int) -> Un
         ) { dt ->
             val g = game
             clock = g.time
-            if (g.impact > 0f) fx.bump(g.impact)
+            if (g.impact > 0f) fx.bump(g.impact / 6f)
             if (session.countdown && g.phase == Phase.RUNNING && outcome == null) {
                 timeLeft -= dt
                 if (timeLeft <= 0f) {
@@ -325,7 +325,7 @@ fun GameScreen(session: Session, onExit: () -> Unit, onNextCampaign: (Int) -> Un
                     }
                     Spacer(Modifier.height(10.dp))
                 }
-                SliderRow("Czułość", settings.sensitivity, 0.4f..2.2f, "×%.1f".format(settings.sensitivity)) { v -> Store.update { it.copy(sensitivity = v) } }
+                SliderRow("Czułość", settings.sensitivity, 0.3f..1.6f, "×%.1f".format(settings.sensitivity)) { v -> Store.update { it.copy(sensitivity = v) } }
                 Spacer(Modifier.height(6.dp))
                 GhostButton("Wyjdź do menu", Modifier.fillMaxWidth()) { flush(game, false); onExit() }
             }

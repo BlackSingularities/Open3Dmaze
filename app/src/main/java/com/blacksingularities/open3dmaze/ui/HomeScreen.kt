@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -72,10 +73,16 @@ fun HomeScreen(nav: (Route) -> Unit, play: (Mode) -> Unit) {
     LaunchedEffect(settings.autoUpdate) { if (settings.autoUpdate) update.check() }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        MazeView(demo, tilt, paused = false, modifier = Modifier.fillMaxSize(), dim = 0.5f) {
+        MazeView(demo, tilt, paused = false, modifier = Modifier.fillMaxSize(), dim = 0.8f, hud = false) {
             demo.events.clear()
             if (demo.phase == Phase.WON && demo.winT > 2.5f) demo = newDemo()
         }
+        // Przyciemnienie od góry, żeby tytuł i karty były czytelne nad żywym tłem.
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(0f to Color(0xF2000000), 0.45f to Color(0xB3000000), 1f to Color(0xE6000000)),
+            ),
+        )
         Column(
             Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         ) {
@@ -134,7 +141,7 @@ private fun Pill(text: String) {
 @Composable
 private fun ModeCard(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(22.dp)).background(Color(0xCC0A0A0A))
+        Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(22.dp)).background(Color(0xF00A0A0A))
             .border(1.dp, Palette.Line, RoundedCornerShape(22.dp)).clickable(onClick = onClick).heightIn(min = 68.dp).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -152,7 +159,7 @@ private fun ModeCard(icon: ImageVector, title: String, subtitle: String, onClick
 @Composable
 private fun SmallTile(icon: ImageVector, title: String, modifier: Modifier, onClick: () -> Unit) {
     Column(
-        modifier.clip(RoundedCornerShape(20.dp)).background(Color(0xCC0A0A0A)).border(1.dp, Palette.Line, RoundedCornerShape(20.dp))
+        modifier.clip(RoundedCornerShape(20.dp)).background(Color(0xF00A0A0A)).border(1.dp, Palette.Line, RoundedCornerShape(20.dp))
             .clickable(onClick = onClick).padding(vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

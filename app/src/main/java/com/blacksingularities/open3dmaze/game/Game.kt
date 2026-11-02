@@ -5,6 +5,19 @@ import kotlin.math.exp
 import kotlin.math.hypot
 import kotlin.math.sqrt
 
+/** Skala świata: szerokość korytarza = 2,5 cm. */
+const val UNIT_M = 0.025f
+
+/** Przyspieszenie ziemskie w jednostkach świata. */
+const val G = 9.81f / UNIT_M
+
+const val HOLE_R = 0.42f
+private const val MU_ROLL = 0.010f
+private const val MU_ICE = 0.0015f
+private const val AIR = 1.2f
+private const val RESTITUTION = 0.45f
+private const val MAX_SPEED = 60f
+
 enum class Phase { RUNNING, FALLING, WON }
 
 enum class Ev { GEM, FALL, WIN, PORTAL, CHECK, BOOST, RESPAWN }
@@ -85,35 +98,42 @@ class Game(val level: Level) {
         val ti = Geo.index(x)
         val tj = Geo.index(y)
         val tile = level.at(ti, tj)
-        val accel = 30f * sensitivity
-        var ax = gx * accel
-        var ay = gy * accel
+        val ice = tile == T.ICE
+        // Toczenie bez poślizgu: a = 5/7·g·sinθ (pełna kula). Na lodzie kulka ślizga się: a = g·sinθ.
+        val k = (if (ice) 1f else 5f / 7f) * G * sensitivity
+        var ax = gx * k
+        var ay = gy * k
 
-        // Krawędź dziury lekko wciąga kulkę.
         if (tile == T.HOLE) {
             val hx = Geo.center(ti); val hy = Geo.center(tj)
             val ddx = hx - x; val ddy = hy - y
             val d = hypot(ddx, ddy)
-            if (d < 0.36f) {
+            if (d < HOLE_R - BALL_R * 0.45f) {
                 startFall(hx, hy); return
             }
-            if (d > 1e-4f) { ax += ddx / d * 14f; ay += ddy / d * 14f }
+            // Środek kulki nad krawędzią – kulka przechyla się i zsuwa do środka.
+            if (d < HOLE_R && d > 1e-4f) {
+                val pull = G * 0.55f * (1f - d / HOLE_R + 0.3f)
+                ax += ddx / d * pull; ay += ddy / d * pull
+            }
         }
         if (tile == T.BOOST) {
+            val b = G * 0.5f
             when (level.boostDir[tj * level.gw + ti]) {
-                0 -> ax += 60f; 1 -> ay += 60f; 2 -> ax -= 60f; 3 -> ay -= 60f
+                0 -> ax += b; 1 -> ay += b; 2 -> ax -= b; 3 -> ay -= b
             }
         }
 
         vx += ax * dt
         vy += ay * dt
-        val damp = if (tile == T.ICE) 0.12f else 1.5f
-        val f = exp(-damp * dt)
-        vx *= f; vy *= f
+        // Opór toczenia: stała siła przeciwna ruchowi. Przy małym pochyleniu kulka stoi.
+        val rr = (if (ice) MU_ICE else MU_ROLL) * G * dt + if (ice) 0f else AIR * dt
+        val sp0 = hypot(vx, vy)
+        if (sp0 <= rr) { vx = 0f; vy = 0f } else { val f = (sp0 - rr) / sp0; vx *= f; vy *= f }
         val sp = hypot(vx, vy)
-        if (sp > 16f) { vx *= 16f / sp; vy *= 16f / sp }
+        if (sp > MAX_SPEED) { vx *= MAX_SPEED / sp; vy *= MAX_SPEED / sp }
 
-        val n = ceil(sp * dt / 0.07f).toInt().coerceIn(1, 12)
+        val n = ceil(sp * dt / 0.06f).toInt().coerceIn(1, 40)
         val h = dt / n
         val ox = x; val oy = y
         repeat(n) {
@@ -167,13 +187,16 @@ class Game(val level: Level) {
             y += ny * pen
             val vn = vx * nx + vy * ny
             if (vn < 0f) {
-                val e = 0.38f
+                // Stal o drewno: część energii ginie, mocne uderzenia odbijają słabiej.
+                val e = (RESTITUTION - (-vn) * 0.004f).coerceIn(0.2f, RESTITUTION)
                 vx -= (1f + e) * vn * nx
                 vy -= (1f + e) * vn * ny
-                // Tarcie styczne przy uderzeniu.
+                // Tarcie styczne – kulka uderzona pod kątem traci trochę prędkości wzdłuż ściany.
                 val tx = -ny; val ty = nx
                 val vt = vx * tx + vy * ty
-                vx -= vt * 0.04f * tx; vy -= vt * 0.04f * ty
+                val loss = (-vn * 0.12f).coerceAtMost(kotlin.math.abs(vt) * 0.3f)
+                val sgn = if (vt > 0f) 1f else -1f
+                vx -= sgn * loss * tx; vy -= sgn * loss * ty
                 if (-vn > impact) impact = -vn
             }
         }
@@ -206,7 +229,7 @@ class Game(val level: Level) {
                 events += Ev.GEM
             }
         }
-        if (hypot(level.cx(level.goal) - x, level.cy(level.goal) - y) < 0.38f) {
+        if (hypot(level.cx(level.goal) - x, level.cy(level.goal) - y) < 0.30f) {
             phase = Phase.WON
             vx = 0f; vy = 0f
             events += Ev.WIN
