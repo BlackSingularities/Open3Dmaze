@@ -1,0 +1,84 @@
+name: Build & Release
+
+# Budowanie i wydanie wyłącznie po wypchnięciu tagu wersji (np. v1.2.3).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_B64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Wersja
+        id: ver
+        run: |
+          BASE="${GITHUB_REF_NAME#v}"
+          NAME="$BASE"
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$(( ${{ github.run_number }} + 100 ))" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+
+      - name: Klucz podpisu
+        if: env.KEYSTORE_B64 != ''
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.p12"
+          echo "SIGNING_KEYSTORE_PATH=$RUNNER_TEMP/release.p12" >> "$GITHUB_ENV"
+
+      - name: Testy jednostkowe
+        run: gradle testDebugUnitTest --stacktrace
+
+      - name: Budowanie APK
+        env:
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+        run: gradle :app:assembleRelease -PrequireSigning=true -PversionCode=${{ steps.ver.outputs.code }} -PversionName=${{ steps.ver.outputs.name }} --stacktrace
+
+      - name: Przygotowanie pliku
+        run: cp app/build/outputs/apk/release/app-release.apk "Open3Dmaze-${{ steps.ver.outputs.name }}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Open3Dmaze-${{ steps.ver.outputs.name }}
+          path: Open3Dmaze-${{ steps.ver.outputs.name }}.apk
+
+      - name: Publikacja wydania
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAME: ${{ steps.ver.outputs.name }}
+          BASE: ${{ steps.ver.outputs.base }}
+        run: |
+          TAG="v$NAME"
+          NOTES=$(awk -v version="$BASE" '$0 == "## " version { found=1; next } found && /^## / { exit } found { print }' CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            LOG=$(git log -5 --pretty='- %s' "$GITHUB_SHA")
+            NOTES=$(printf 'Poprawki i ulepszenia:\n\n%s' "$LOG")
+          fi
+          FOOTER=$(printf -- '---\n**Android:** pobierz **Open3Dmaze-%s.apk** i zainstaluj go na telefonie (Android 10+). Kolejne wersje aplikacja pobierze i zainstaluje sama.' "$NAME")
+          gh release create "$TAG" "Open3Dmaze-$NAME.apk" \
+            --target "$GITHUB_SHA" \
+            --title "Open3Dmaze $NAME" \
+            --notes "$(printf '%s\n\n%s' "$NOTES" "$FOOTER")" \
+            --latest

@@ -1,0 +1,12 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Podstawy ścian (cień 3D) -->
+    <path android:strokeColor="#66FFFFFF" android:strokeWidth="3" android:fillColor="#00000000" android:strokeLineJoin="round"
+        android:pathData="M28,36h52v44h-52z M40,36v20h12 M64,48v32 M40,68h14" />
+    <!-- Wierzchy ścian odsunięte jak w grze -->
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="4" android:fillColor="#00000000" android:strokeLineJoin="round" android:strokeLineCap="round"
+        android:pathData="M32,30h52v44h-52z M44,30v20h12 M68,42v32 M44,62h14" />
+    <!-- Kulka -->
+    <path android:fillColor="#FFFFFF" android:pathData="M52,64m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+</vector>

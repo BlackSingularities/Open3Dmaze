@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open3Dmaze — Labirynt 3D sterowany pochyleniem</title>
+<meta name="description" content="Pochyl telefon, a kulka potoczy się po labiryncie, którego ściany wyrastają w Twoją stronę i przechylają się razem z telefonem.">
+<meta property="og:title" content="Open3Dmaze">
+<meta property="og:description" content="Labirynt 3D sterowany pochyleniem telefonu">
+<style>
+  :root {
+    --bg: #000000; --surface: #0b0b0b; --text: #f2f2f0; --muted: #a2a29c;
+    --line: #262626; --accent: #f2f2f0; --on-accent: #000000; --coffee: #f2c14e; --on-coffee: #241a00;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color: inherit; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+  header.hero { padding: 56px 0 40px; text-align: center; }
+  .icon { width: 96px; height: 96px; border-radius: 24px; display: block; margin: 0 auto 24px; }
+  h1 { font-size: clamp(36px, 7vw, 56px); line-height: 1.05; margin: 0 0 12px; letter-spacing: -0.02em; }
+  .tagline { font-size: clamp(18px, 3vw, 22px); color: var(--muted); margin: 0 auto 20px; max-width: 34ch; }
+  .lead { max-width: 62ch; margin: 0 auto 28px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 24px; border-radius: 999px;
+         font-weight: 600; text-decoration: none; border: 1px solid transparent; }
+  .btn.primary { background: var(--accent); color: var(--on-accent); }
+  .btn:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+  .meta { margin-top: 16px; font-size: 14px; color: var(--muted); }
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 20px 0 0; padding: 0; list-style: none; }
+  .pills li { font-size: 13px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); }
+  .stage { display: block; width: 100%; max-width: 420px; aspect-ratio: 3 / 4; margin: 32px auto 0;
+           border-radius: 28px; border: 1px solid var(--line); background: #000; touch-action: none; }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  section { padding: 40px 0; }
+  h2 { font-size: 26px; margin: 0 0 20px; letter-spacing: -0.01em; }
+  .features { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px;
+              grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .feat { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
+  .feat h3 { font-size: 17px; margin: 0 0 6px; }
+  .feat p { margin: 0; color: var(--muted); font-size: 15px; }
+  .support { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 32px; text-align: center; }
+  .support p { max-width: 56ch; margin: 0 auto 20px; color: var(--muted); }
+  .btn.coffee { background: var(--coffee); color: var(--on-coffee); }
+  footer { padding: 32px 0 48px; text-align: center; font-size: 14px; color: var(--muted); }
+  footer a { font-weight: 600; color: var(--text); }
+</style>
+<link rel="icon" href="icon.png" type="image/png">
+</head>
+<body>
+<header class="hero wrap">
+  <img class="icon" src="icon.png" alt="Open3Dmaze" width="96" height="96">
+  <h1>Open3Dmaze</h1>
+  <p class="tagline">Labirynt 3D sterowany pochyleniem telefonu</p>
+  <p class="lead">Plansza jest płaska, ale ściany żyją. Pochylasz telefon, kulka się toczy, a ściany wyrastają w Twoją stronę i przechylają się razem z ekranem.</p>
+  <div class="actions">
+    <a class="btn primary" id="download" href="https://redzikowski.com">Pobierz na Androida</a>
+  </div>
+  <p class="meta" id="version">Plik APK · Android 10 lub nowszy</p>
+  <ul class="pills">
+    <li>Darmowa</li><li>Bez reklam</li><li>Bez śledzenia</li><li>Aktualizuje się sama</li>
+  </ul>
+  <canvas class="stage" id="stage" width="840" height="1120" aria-label="Podgląd efektu 3D"></canvas>
+  <p class="hint">Porusz myszką albo palcem nad podglądem, żeby zobaczyć, jak przechylają się ściany.</p>
+</header>
+
+<main class="wrap">
+  <section aria-labelledby="f">
+    <h2 id="f">Co potrafi</h2>
+    <ul class="features">
+      <li class="feat"><h3>Ściany w 3D</h3><p>Każda ściana to bryła, która przechyla się razem z telefonem. Wysokość i siłę efektu ustawisz sam.</p></li>
+      <li class="feat"><h3>Kampania</h3><p>Pięć światów i 60 poziomów: Obsydian, Otchłań, Szron, Pryzmat i Zaćmienie. Po trzy gwiazdki na poziom.</p></li>
+      <li class="feat"><h3>Siedem trybów</h3><p>Kampania, Labirynt dnia, Bez końca, Wyścig z czasem, Mrok, Zen i Własny labirynt z ziarnem.</p></li>
+      <li class="feat"><h3>Pułapki i pomoce</h3><p>Dziury, lód, portale, przyspieszacze, punkty kontrolne i klejnoty.</p></li>
+      <li class="feat"><h3>Twój wygląd</h3><p>Czarny interfejs AMOLED, siedem kolorów akcentu i osiem kulek – od chromu po lawę.</p></li>
+      <li class="feat"><h3>Statystyki</h3><p>Rekordy czasów, seria dni, dystans, upadki i 16 osiągnięć.</p></li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="support">
+      <h2>Darmowa, bez reklam</h2>
+      <p>Open3Dmaze jest i zostanie darmowa. Pomysł i wykonanie: Adam Rędzikowski. Jeśli gra sprawia Ci frajdę, możesz wesprzeć jej rozwój, stawiając mi kawę.</p>
+      <a class="btn coffee" href="https://buycoffee.to/adamredzikowski">☕ Postaw kawę na buycoffee.to</a>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  Pomysł i wykonanie: Adam Rędzikowski · <a href="https://redzikowski.com">redzikowski.com</a>
+</footer>
+
+<script>
+  // Przycisk prowadzi prosto do pliku APK z najnowszego wydania.
+  fetch("https://redzikowski.com/api/github/repos/BlackSingularities/Open3Dmaze/releases/latest")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (rel) {
+      if (!rel) return;
+      var apk = (rel.assets || []).filter(function (a) { return /\.apk$/i.test(a.name); })[0];
+      if (apk) document.getElementById("download").href = apk.browser_download_url;
+      var v = (rel.tag_name || "").replace(/^v/, "");
+      if (v) document.getElementById("version").textContent = "Wersja " + v + " · Android 10 lub nowszy";
+    })
+    .catch(function () {});
+
+  // Podgląd efektu: ten sam sposób rysowania co w grze, uproszczony.
+  (function () {
+    var c = document.getElementById("stage"), g = c.getContext("2d");
+    var W = 7, H = 10, T = 0.34, S = 1 + T;
+    var gw = 2 * W + 1, gh = 2 * H + 1, t = [];
+    for (var i = 0; i < gw * gh; i++) t[i] = 1;
+    var seen = [], st = [0]; seen[0] = 1; t[gw + 1] = 0;
+    var seed = 7;
+    function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+    while (st.length) {
+      var cur = st[st.length - 1], x = cur % W, y = (cur / W) | 0, opts = [];
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) {
+        var nx = x + d[0], ny = y + d[1];
+        if (nx >= 0 && ny >= 0 && nx < W && ny < H && !seen[ny * W + nx]) opts.push(d);
+      });
+      if (!opts.length) { st.pop(); continue; }
+      var d = opts[(rnd() * opts.length) | 0], nx = x + d[0], ny = y + d[1];
+      seen[ny * W + nx] = 1;
+      t[(2 * y + 1 + d[1]) * gw + 2 * x + 1 + d[0]] = 0;
+      t[(2 * ny + 1) * gw + 2 * nx + 1] = 0;
+      st.push(ny * W + nx);
+    }
+    function start(i) { return Math.floor(i / 2) * S + (i % 2 ? T : 0); }
+    function size(i) { return i % 2 ? 1 : T; }
+    function at(i, j) { return i < 0 || j < 0 || i >= gw || j >= gh ? 1 : t[j * gw + i]; }
+    var worldW = start(gw - 1) + size(gw - 1), worldH = start(gh - 1) + size(gh - 1);
+    var tx = 0, ty = 0, vx = c.width / 2, vy = c.height / 2, auto = true, time = 0;
+    function setTilt(e) {
+      var r = c.getBoundingClientRect(), p = e.touches ? e.touches[0] : e;
+      tx = ((p.clientX - r.left) / r.width - 0.5) * 2;
+      ty = ((p.clientY - r.top) / r.height - 0.5) * 2;
+      auto = false;
+    }
+    c.addEventListener("mousemove", setTilt);
+    c.addEventListener("touchmove", function (e) { setTilt(e); e.preventDefault(); }, { passive: false });
+    c.addEventListener("mouseleave", function () { auto = true; });
+    c.addEventListener("touchend", function () { auto = true; });
+    function quad(a, col) {
+      g.fillStyle = col; g.beginPath();
+      g.moveTo(a[0], a[1]); g.lineTo(a[2], a[3]); g.lineTo(a[4], a[5]); g.lineTo(a[6], a[7]);
+      g.closePath(); g.fill();
+    }
+    function frame() {
+      time += 1 / 60;
+      if (auto) { tx = Math.sin(time * 0.7) * 0.8; ty = Math.cos(time * 0.5) * 0.6; }
+      var w = c.width, h = c.height, sc = Math.min(w / (worldW + 0.8), h / (worldH + 0.8));
+      var ox = (w - worldW * sc) / 2, oy = (h - worldH * sc) / 2;
+      vx += ((w / 2 - tx * w * 0.75) - vx) * 0.12;
+      vy += ((h / 2 - ty * h * 0.5) - vy) * 0.12;
+      var k = 0.11;
+      function lx(p) { return vx + (p - vx) * (1 + k); }
+      function ly(p) { return vy + (p - vy) * (1 + k); }
+      g.fillStyle = "#000"; g.fillRect(0, 0, w, h);
+      g.fillStyle = "#060606"; g.fillRect(ox, oy, worldW * sc, worldH * sc);
+      var walls = [];
+      for (var j = 0; j < gh; j++) for (var i2 = 0; i2 < gw; i2++) if (t[j * gw + i2]) {
+        var cx = ox + (start(i2) + size(i2) / 2) * sc - vx, cy = oy + (start(j) + size(j) / 2) * sc - vy;
+        walls.push([cx * cx + cy * cy, i2, j]);
+      }
+      walls.sort(function (a, b) { return b[0] - a[0]; });
+      walls.forEach(function (b) {
+        var i = b[1], j = b[2];
+        var x0 = ox + start(i) * sc, x1 = x0 + size(i) * sc, y0 = oy + start(j) * sc, y1 = y0 + size(j) * sc;
+        var X0 = lx(x0), X1 = lx(x1), Y0 = ly(y0), Y1 = ly(y1);
+        if (vx < x0 && !at(i - 1, j)) quad([x0, y0, x0, y1, X0, Y1, X0, Y0], "#808080");
+        if (vx > x1 && !at(i + 1, j)) quad([x1, y0, x1, y1, X1, Y1, X1, Y0], "#454545");
+        if (vy < y0 && !at(i, j - 1)) quad([x0, y0, x1, y0, X1, Y0, X0, Y0], "#a8a8a8");
+        if (vy > y1 && !at(i, j + 1)) quad([x0, y1, x1, y1, X1, Y1, X0, Y1], "#363636");
+      });
+      // Kulka toczy się po korytarzu startowym.
+      var bx = ox + (start(1) + 0.5) * sc, by = oy + (start(1) + 0.5) * sc, br = 0.3 * sc;
+      var grd = g.createRadialGradient(lx(bx) - br * 0.35, ly(by) - br * 0.4, 1, lx(bx), ly(by), br * 1.4);
+      grd.addColorStop(0, "#fff"); grd.addColorStop(0.3, "#e8e8e8"); grd.addColorStop(1, "#333");
+      g.fillStyle = grd; g.beginPath(); g.arc(vx + (bx - vx) * (1 + k * 0.3), vy + (by - vy) * (1 + k * 0.3), br, 0, 7); g.fill();
+      g.fillStyle = "#e6e6e6";
+      walls.forEach(function (b) {
+        var i = b[1], j = b[2];
+        var x0 = lx(ox + start(i) * sc), x1 = lx(ox + (start(i) + size(i)) * sc);
+        var y0 = ly(oy + start(j) * sc), y1 = ly(oy + (start(j) + size(j)) * sc);
+        g.fillRect(x0 - 0.5, y0 - 0.5, x1 - x0 + 1, y1 - y0 + 1);
+      });
+      requestAnimationFrame(frame);
+    }
+    frame();
+  })();
+</script>
+</body>
+</html>
