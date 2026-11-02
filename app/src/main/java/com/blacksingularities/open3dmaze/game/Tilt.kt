@@ -69,8 +69,9 @@ class Fx(context: Context) {
     private var lastBump = 0L
 
     fun buzz(ms: Long, amp: Int) {
-        if (!haptics || vib == null || !vib.hasVibrator()) return
-        runCatching { vib.vibrate(VibrationEffect.createOneShot(ms, amp.coerceIn(1, 255))) }
+        val v = vib ?: return
+        if (!haptics || !v.hasVibrator()) return
+        runCatching { v.vibrate(VibrationEffect.createOneShot(ms, amp.coerceIn(1, 255))) }
     }
 
     fun beep(type: Int, ms: Int) {
