@@ -24,6 +24,8 @@ data class Settings(
     val autoUpdate: Boolean = true,
     val floorGrid: Boolean = true,
     val minimap: Boolean = true,
+    val ghost: Boolean = true,
+    val flyover: Boolean = true,
 )
 
 data class Progress(
@@ -54,6 +56,7 @@ object Store {
     fun init(context: Context) {
         if (::p.isInitialized) return
         p = context.getSharedPreferences("open3dmaze", Context.MODE_PRIVATE)
+        ghosts = context.getSharedPreferences("open3dmaze-ghosts", Context.MODE_PRIVATE)
         settings.value = Settings(
             sensitivity = p.getFloat("sens", 1f),
             control = p.getInt("control", 0),
@@ -72,6 +75,8 @@ object Store {
             autoUpdate = p.getBoolean("autoUpd", true),
             floorGrid = p.getBoolean("grid", true),
             minimap = p.getBoolean("minimap", true),
+            ghost = p.getBoolean("ghost", true),
+            flyover = p.getBoolean("flyover", true),
         )
         val starStr = p.getString("stars", "") ?: ""
         val stars = starStr.split(',').mapNotNull { it.toIntOrNull() }
@@ -107,7 +112,7 @@ object Store {
             .putBoolean("haptics", s.haptics).putBoolean("sound", s.sound).putBoolean("trail", s.trail)
             .putBoolean("invPar", s.invertParallax).putBoolean("timer", s.showTimer)
             .putFloat("calX", s.calX).putFloat("calY", s.calY)
-            .putBoolean("autoUpd", s.autoUpdate).putBoolean("grid", s.floorGrid).putBoolean("minimap", s.minimap)
+            .putBoolean("autoUpd", s.autoUpdate).putBoolean("grid", s.floorGrid).putBoolean("minimap", s.minimap).putBoolean("ghost", s.ghost).putBoolean("flyover", s.flyover)
             .apply()
     }
 
@@ -132,7 +137,37 @@ object Store {
         return fresh
     }
 
+    private lateinit var ghosts: SharedPreferences
+
+    /** Zapis najlepszego przejazdu poziomu: pozycje w setnych częściach jednostki. */
+    fun saveGhost(key: String, xs: List<Float>, ys: List<Float>) {
+        if (!::ghosts.isInitialized) return
+        val n = minOf(xs.size, ys.size, 6000)
+        val sb = StringBuilder(n * 8)
+        for (i in 0 until n) {
+            if (i > 0) sb.append(';')
+            sb.append((xs[i] * 100).toInt()).append(',').append((ys[i] * 100).toInt())
+        }
+        ghosts.edit().putString(key, sb.toString()).apply()
+    }
+
+    fun loadGhost(key: String): FloatArray? {
+        if (!::ghosts.isInitialized) return null
+        val raw = ghosts.getString(key, null) ?: return null
+        return runCatching {
+            val parts = raw.split(';')
+            FloatArray(parts.size * 2).also { out ->
+                parts.forEachIndexed { i, p ->
+                    val c = p.indexOf(',')
+                    out[2 * i] = p.substring(0, c).toInt() / 100f
+                    out[2 * i + 1] = p.substring(c + 1).toInt() / 100f
+                }
+            }
+        }.getOrNull()
+    }
+
     fun resetProgress() {
+        if (::ghosts.isInitialized) ghosts.edit().clear().apply()
         record { Progress() }
         p.edit().putStringSet("ach", emptySet()).apply()
         progress.value = Progress()

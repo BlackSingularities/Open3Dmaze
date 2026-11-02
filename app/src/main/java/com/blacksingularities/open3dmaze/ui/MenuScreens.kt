@@ -289,6 +289,8 @@ fun SettingsScreen(onBack: () -> Unit) {
                     }
                 }
                 SwitchRow("Ślad kulki", null, s.trail) { v -> Store.update { it.copy(trail = v) } }
+                SwitchRow("Przelot nad labiryntem", "Na starcie poziomu kamera pokazuje całość", s.flyover) { v -> Store.update { it.copy(flyover = v) } }
+                SwitchRow("Duch rekordu", "Półprzezroczysta kulka powtarza Twój najlepszy przejazd", s.ghost) { v -> Store.update { it.copy(ghost = v) } }
                 SwitchRow("Minimapa", "W dużych labiryntach, które nie mieszczą się na ekranie", s.minimap) { v -> Store.update { it.copy(minimap = v) } }
                 SwitchRow("Stoper w trakcie gry", null, s.showTimer) { v -> Store.update { it.copy(showTimer = v) } }
             }

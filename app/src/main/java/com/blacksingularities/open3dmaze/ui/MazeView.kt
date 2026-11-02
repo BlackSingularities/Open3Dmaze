@@ -70,6 +70,7 @@ fun MazeView(
     modifier: Modifier = Modifier,
     dim: Float = 0f,
     hud: Boolean = true,
+    overview: Boolean = false,
     onStep: (Float) -> Unit = {},
 ) {
     val settings by Store.settings.collectAsState()
@@ -126,6 +127,6 @@ fun MazeView(
 
     Canvas(modifier.then(if (settings.control == 1 || !tilt.available) touchMod else Modifier)) {
         frame
-        renderer.draw(this, game, settings, clock.tx, clock.ty, clock.time, clock.dt, accent, skin, dim, hud)
+        renderer.draw(this, game, settings, clock.tx, clock.ty, clock.time, clock.dt, accent, skin, dim, hud, overview)
     }
 }

@@ -59,6 +59,7 @@ class MazeRenderer {
     private var camY = Float.NaN
     private var vxS = Float.NaN
     private var vyS = Float.NaN
+    private var curSc = Float.NaN
     private var mapFor: Level? = null
     private var map: ImageBitmap? = null
 
@@ -74,11 +75,17 @@ class MazeRenderer {
         skin: Skin,
         dim: Float = 0f,
         hud: Boolean = true,
+        overview: Boolean = false,
     ) = with(ds) {
         val lv = g.level
         val w = size.width
         val h = size.height
-        val sc = w / (7.2f * (1f + WALL_T) / st.zoom.coerceIn(0.5f, 2f))
+        // Podgląd całości: skala dopasowana do labiryntu; przejście jest płynne w obie strony.
+        val playSc = w / (7.2f * (1f + WALL_T) / st.zoom.coerceIn(0.5f, 2f))
+        val fitSc = min(w / (lv.worldW + 1.2f), h / (lv.worldH + 1.2f)).coerceAtMost(playSc)
+        val targetSc = if (overview) fitSc else playSc
+        curSc = if (curSc.isNaN()) targetSc else curSc + (targetSc - curSc) * (1f - exp(-3.5f * dt))
+        val sc = curSc
         val viewW = w / sc
         val viewH = h / sc
 
@@ -86,10 +93,10 @@ class MazeRenderer {
         val lookX = (g.vx * 0.18f).coerceIn(-viewW * 0.25f, viewW * 0.25f)
         val lookY = (g.vy * 0.18f).coerceIn(-viewH * 0.25f, viewH * 0.25f)
         val pad = 0.6f
-        val tcx = if (lv.worldW + pad * 2 <= viewW) lv.worldW / 2f else (g.x + lookX).coerceIn(viewW / 2f - pad, lv.worldW - viewW / 2f + pad)
-        val tcy = if (lv.worldH + pad * 2 <= viewH) lv.worldH / 2f else (g.y + lookY).coerceIn(viewH / 2f - pad, lv.worldH - viewH / 2f + pad)
+        val tcx = if (overview || lv.worldW + pad * 2 <= viewW) lv.worldW / 2f else (g.x + lookX).coerceIn(viewW / 2f - pad, lv.worldW - viewW / 2f + pad)
+        val tcy = if (overview || lv.worldH + pad * 2 <= viewH) lv.worldH / 2f else (g.y + lookY).coerceIn(viewH / 2f - pad, lv.worldH - viewH / 2f + pad)
         if (camX.isNaN()) { camX = tcx; camY = tcy } else {
-            val a = 1f - exp(-4.5f * dt)
+            val a = 1f - exp((if (overview) -3.5f else -4.5f) * dt)
             camX += (tcx - camX) * a; camY += (tcy - camY) * a
         }
         val cx = w / 2f
@@ -264,6 +271,21 @@ class MazeRenderer {
             drawPath(path, Color(0xFF1E7F96))
         }
 
+        g.ghost?.let { gh ->
+            val n = gh.size / 2
+            if (n > 1 && g.phase != Phase.WON) {
+                val f = (g.time / com.blacksingularities.open3dmaze.game.GHOST_DT).coerceIn(0f, (n - 1).toFloat())
+                val i = f.toInt().coerceAtMost(n - 2)
+                val u = f - i
+                val gxw = gh[2 * i] + (gh[2 * i + 2] - gh[2 * i]) * u
+                val gyw = gh[2 * i + 1] + (gh[2 * i + 3] - gh[2 * i + 1]) * u
+                val p = Offset(lx(sx(gxw), BALL_R), ly(sy(gyw), BALL_R))
+                val rr = unit * BALL_R * (1f + k * BALL_R)
+                drawCircle(Color.White.copy(alpha = 0.10f), rr, p)
+                drawCircle(Color.White.copy(alpha = 0.45f), rr, p, style = Stroke(2f))
+            }
+        }
+
         drawBall(g, skin, accent, ::sx, ::sy, ::lx, ::ly, unit, k, time, shX, shY)
 
         // Ściany – najpierw boki od najdalszych od punktu zbiegu, potem wszystkie wierzchy.
@@ -333,7 +355,7 @@ class MazeRenderer {
         // Winieta – światło skupione na środku planszy.
         drawRect(Brush.radialGradient(0.55f to Color.Transparent, 1f to Color(0xA0000000), center = Offset(cx, cy), radius = max(w, h) * 0.75f))
 
-        if (hud && st.minimap && !lv.spec.dark && (lv.worldW > viewW || lv.worldH > viewH)) drawMinimap(g, accent, viewW, viewH)
+        if (hud && !overview && st.minimap && !lv.spec.dark && (lv.worldW > viewW || lv.worldH > viewH)) drawMinimap(g, accent, viewW, viewH)
         if (dim > 0f) drawRect(Color.Black.copy(alpha = dim))
     }
 
@@ -423,12 +445,20 @@ class MazeRenderer {
             Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.45f * alpha), startY = by - r, endY = by + r),
             r, c,
         )
-        // Znacznik obrotu – widać, że kulka się toczy, a nie ślizga.
-        val mx = sin(g.rollX); val my = sin(g.rollY)
-        val vis = cos(g.rollX) * cos(g.rollY)
-        if (vis > 0f) {
-            val mc = if (skin.stripes) accent else skin.shade
-            drawCircle(mc.copy(alpha = alpha * (if (skin.stripes) 0.95f else 0.3f) * vis), r * (if (skin.stripes) 0.45f else 0.16f) * (0.6f + 0.4f * vis), Offset(bx + mx * r * 0.6f, by + my * r * 0.6f))
+        // Plamki przyklejone do powierzchni kuli, obracane prawdziwą macierzą obrotu.
+        val m = g.rot
+        val spotC = if (skin.stripes) accent else skin.shade
+        val spotA = if (skin.stripes) 0.95f else 0.28f
+        val spotR = if (skin.stripes) 0.42f else 0.17f
+        for (p in 0 until SPOTS.size / 3) {
+            val bxs = SPOTS[3 * p]; val bys = SPOTS[3 * p + 1]; val bzs = SPOTS[3 * p + 2]
+            val wx = m[0] * bxs + m[1] * bys + m[2] * bzs
+            val wy = m[3] * bxs + m[4] * bys + m[5] * bzs
+            val wz = m[6] * bxs + m[7] * bys + m[8] * bzs
+            if (wz >= -0.05f) continue
+            val face = -wz
+            // Plamka przy krawędzi jest mniejsza i bledsza – skrót perspektywiczny kuli.
+            drawCircle(spotC.copy(alpha = alpha * spotA * face.coerceIn(0f, 1f)), r * spotR * (0.35f + 0.65f * face), Offset(bx + wx * r * 0.92f, by + wy * r * 0.92f))
         }
         // Odbity akcent na krawędzi i ostry blik.
         drawArc(accent.copy(alpha = 0.35f * alpha), 20f, 70f, false, Offset(bx - r * 0.92f, by - r * 0.92f), Size(r * 1.84f, r * 1.84f), style = Stroke(r * 0.12f, cap = StrokeCap.Round))
@@ -441,6 +471,9 @@ class MazeRenderer {
     }
 
     companion object {
+        /** Rozmieszczenie plamek na kuli (wektory jednostkowe, ściany sześcianu). */
+        private val SPOTS = floatArrayOf(1f, 0f, 0f, -1f, 0f, 0f, 0f, 1f, 0f, 0f, -1f, 0f, 0f, 0f, 1f, 0f, 0f, -1f)
+
         val PortalColors = listOf(Color(0xFFFF2D95), Color(0xFF00E5FF), Color(0xFFFFB300), Color(0xFFB6FF3B))
 
         /** Delikatna faktura podłogi: ziarno i plamy jak na matowej, ciemnej płycie. */

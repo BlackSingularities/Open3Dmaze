@@ -12,6 +12,9 @@ const val UNIT_M = 0.025f
 const val G = 9.81f / UNIT_M
 
 const val HOLE_R = 0.42f
+
+/** Odstęp próbek „ducha” w sekundach. */
+const val GHOST_DT = 0.1f
 private const val MU_ROLL = 0.010f
 private const val MU_ICE = 0.0015f
 private const val AIR = 1.2f
@@ -38,8 +41,26 @@ class Game(val level: Level) {
     /** Obrót kulki (do rysowania tekstury), w radianach na osiach X/Y. */
     var rollX = 0f
     var rollY = 0f
+
+    /**
+     * Orientacja kulki (macierz obrotu 3×3, wierszami). Osie: x w prawo, y w dół ekranu,
+     * z w głąb ekranu – punkt z = −1 patrzy na gracza.
+     */
+    val rot = floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f)
+    private val tmp = FloatArray(9)
+    private var renorm = 0
+
+    /** Zapis przejazdu do „ducha”: pozycje co [GHOST_DT] sekundy. */
+    val ghostX = ArrayList<Float>()
+    val ghostY = ArrayList<Float>()
+    private var ghostAcc = 0f
+
+    /** Najlepszy dotychczasowy przejazd (x0, y0, x1, y1, …) do wyświetlenia jako „duch”. */
+    var ghost: FloatArray? = null
     val collected = BooleanArray(level.gems.size)
     val gemsTaken get() = collected.count { it }
+    val speed get() = hypot(vx, vy)
+    val onIce get() = level.at(Geo.index(x), Geo.index(y)) == T.ICE
 
     private var checkX = x
     private var checkY = y
@@ -78,6 +99,10 @@ class Game(val level: Level) {
         impact = 0f
         when (phase) {
             Phase.FALLING -> {
+                // Czas przejazdu biegnie dalej, więc „duch” też dostaje próbki.
+                time += dt
+                ghostAcc += dt
+                while (ghostAcc >= GHOST_DT) { ghostAcc -= GHOST_DT; ghostX += x; ghostY += y }
                 fallT += dt
                 val k = (fallT / 0.25f).coerceAtMost(1f)
                 x = fallFromX + (holeX - fallFromX) * k
@@ -145,6 +170,13 @@ class Game(val level: Level) {
         distance += moved
         rollX += (x - ox) / BALL_R
         rollY += (y - oy) / BALL_R
+        roll(x - ox, y - oy)
+
+        ghostAcc += dt
+        while (ghostAcc >= GHOST_DT) {
+            ghostAcc -= GHOST_DT
+            ghostX += x; ghostY += y
+        }
 
         trailAcc += moved
         if (trailAcc > 0.12f) {
@@ -244,6 +276,38 @@ class Game(val level: Level) {
         vx = 0f; vy = 0f
         falls++
         events += Ev.FALL
+    }
+
+    /** Toczenie bez poślizgu: oś obrotu ω = n × v (n – normalna podłogi, w stronę gracza). */
+    private fun roll(dx: Float, dy: Float) {
+        val d = hypot(dx, dy)
+        if (d < 1e-6f) return
+        val ax = dy / d; val ay = -dx / d
+        val th = d / BALL_R
+        val c = kotlin.math.cos(th); val s = kotlin.math.sin(th); val t = 1f - c
+        // Rodrigues dla osi (ax, ay, 0).
+        val q0 = t * ax * ax + c; val q1 = t * ax * ay; val q2 = s * ay
+        val q3 = t * ax * ay; val q4 = t * ay * ay + c; val q5 = -s * ax
+        val q6 = -s * ay; val q7 = s * ax; val q8 = c
+        for (col in 0..2) {
+            val a = rot[col]; val b = rot[3 + col]; val e = rot[6 + col]
+            tmp[col] = q0 * a + q1 * b + q2 * e
+            tmp[3 + col] = q3 * a + q4 * b + q5 * e
+            tmp[6 + col] = q6 * a + q7 * b + q8 * e
+        }
+        tmp.copyInto(rot)
+        if (++renorm > 120) { renorm = 0; orthonormalize() }
+    }
+
+    private fun orthonormalize() {
+        for (c in 0..2) {
+            for (p in 0 until c) {
+                val dot = rot[p] * rot[c] + rot[3 + p] * rot[3 + c] + rot[6 + p] * rot[6 + c]
+                rot[c] -= dot * rot[p]; rot[3 + c] -= dot * rot[3 + p]; rot[6 + c] -= dot * rot[6 + p]
+            }
+            val l = sqrt(rot[c] * rot[c] + rot[3 + c] * rot[3 + c] + rot[6 + c] * rot[6 + c])
+            rot[c] /= l; rot[3 + c] /= l; rot[6 + c] /= l
+        }
     }
 
     private fun respawn() {

@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Diamond
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -80,7 +81,10 @@ fun GameScreen(session: Session, onExit: () -> Unit, onNextCampaign: (Int) -> Un
     val accent = accentColor()
     val tilt = rememberTilt()
     val fx = remember { Fx(ctx.applicationContext) }
-    DisposableEffect(Unit) { onDispose { fx.release() } }
+    DisposableEffect(Unit) {
+        fx.start()
+        onDispose { fx.release() }
+    }
     fx.sound = settings.sound
     fx.haptics = settings.haptics
 
@@ -94,6 +98,12 @@ fun GameScreen(session: Session, onExit: () -> Unit, onNextCampaign: (Int) -> Un
     var clock by remember { mutableFloatStateOf(0f) }
     var toast by remember { mutableStateOf<String?>(null) }
     var intro by remember { mutableStateOf(true) }
+    var overview by remember { mutableStateOf(settings.flyover && !session.countdown) }
+    fun attachGhost(g: Game) {
+        val key = session.bestKey()
+        g.ghost = if (key != null && Store.settings.value.ghost) Store.loadGhost(key) else null
+    }
+    remember(game) { attachGhost(game); 0 }
     val flushed = remember { booleanArrayOf(false) }
 
     fun flush(g: Game, done: Boolean) {
@@ -118,6 +128,7 @@ fun GameScreen(session: Session, onExit: () -> Unit, onNextCampaign: (Int) -> Un
         outcome = null
         paused = false
         intro = true
+        overview = Store.settings.value.flyover && !session.countdown
         gen++
     }
 
@@ -160,6 +171,7 @@ fun GameScreen(session: Session, onExit: () -> Unit, onNextCampaign: (Int) -> Un
             n
         }
         if (fresh.isNotEmpty()) toast = "Osiągnięcie: " + fresh.joinToString { it.title }
+        if (newBest && key != null) Store.saveGhost(key, g.ghostX, g.ghostY)
 
         when (session.mode) {
             Mode.TIME_ATTACK -> {
@@ -198,6 +210,24 @@ fun GameScreen(session: Session, onExit: () -> Unit, onNextCampaign: (Int) -> Un
     LaunchedEffect(gen) {
         delay(1600)
         intro = false
+        // Przelot: po pokazaniu całości kamera zjeżdża do kulki.
+        delay(400)
+        overview = false
+    }
+    LaunchedEffect(paused, outcome, overview) {
+        if (paused || outcome != null || overview) fx.rolling(0f, false)
+    }
+    // W tle (wygaszony ekran, inna aplikacja) gra pauzuje i milknie.
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(owner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) {
+                if (outcome == null) paused = true
+                fx.rolling(0f, false)
+            }
+        }
+        owner.lifecycle.addObserver(obs)
+        onDispose { owner.lifecycle.removeObserver(obs) }
     }
     LaunchedEffect(toast) {
         if (toast != null) { delay(3200); toast = null }
@@ -205,19 +235,25 @@ fun GameScreen(session: Session, onExit: () -> Unit, onNextCampaign: (Int) -> Un
     DisposableEffect(Unit) { onDispose { flush(game, false) } }
 
     BackHandler {
-        if (outcome != null || paused) { flush(game, false); onExit() } else paused = true
+        when {
+            overview -> overview = false
+            outcome != null || paused -> { flush(game, false); onExit() }
+            else -> paused = true
+        }
     }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         MazeView(
             game = game,
             tilt = tilt,
-            paused = paused || outcome != null && game.phase != Phase.WON,
+            paused = paused || overview || outcome != null && game.phase != Phase.WON,
             modifier = Modifier.fillMaxSize(),
+            overview = overview,
         ) { dt ->
             val g = game
             clock = g.time
-            if (g.impact > 0f) fx.bump(g.impact / 6f)
+            if (g.impact > 0f) fx.bump(g.impact)
+            fx.rolling(if (g.phase == Phase.RUNNING) g.speed else 0f, g.onIce)
             if (session.countdown && g.phase == Phase.RUNNING && outcome == null) {
                 timeLeft -= dt
                 if (timeLeft <= 0f) {
@@ -277,6 +313,12 @@ fun GameScreen(session: Session, onExit: () -> Unit, onNextCampaign: (Int) -> Un
             } else if (settings.showTimer) {
                 Chip { TimeText({ clock }) { Color.White } }
             }
+            Spacer(Modifier.size(6.dp))
+            Box(
+                Modifier.size(40.dp).clip(CircleShape).background(if (overview) accent else Color(0xB3000000)).border(1.dp, Palette.Line, CircleShape)
+                    .clickable { overview = !overview },
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.Map, "Podgląd labiryntu", tint = if (overview) Color.Black else Color.White) }
             Spacer(Modifier.size(6.dp))
             Box(
                 Modifier.size(40.dp).clip(CircleShape).background(Color(0xB3000000)).border(1.dp, Palette.Line, CircleShape)

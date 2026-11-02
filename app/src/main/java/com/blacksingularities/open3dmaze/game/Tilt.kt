@@ -5,8 +5,6 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -55,18 +53,29 @@ class TiltSensor(context: Context) : SensorEventListener {
     }
 }
 
-/** Dźwięki i wibracje gry – krótkie, systemowe, bez plików audio. */
+/** Dźwięki (syntezowane na żywo) i wibracje gry. */
 class Fx(context: Context) {
-    private val tone: ToneGenerator? = runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 60) }.getOrNull()
+    private val synth = Sound()
     private val vib: Vibrator? = if (Build.VERSION.SDK_INT >= 31) {
         (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
     } else {
         @Suppress("DEPRECATION")
         context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
     }
-    var sound = true
+    var sound: Boolean
+        get() = synth.enabled
+        set(v) { synth.enabled = v }
     var haptics = true
     private var lastBump = 0L
+
+    fun start() = synth.start()
+    fun stop() = synth.stop()
+
+    /** Co klatkę: prędkość kulki i podłoże dla dźwięku toczenia. */
+    fun rolling(speed: Float, ice: Boolean) {
+        synth.speed = speed
+        synth.onIce = ice
+    }
 
     fun buzz(ms: Long, amp: Int) {
         val v = vib ?: return
@@ -74,25 +83,21 @@ class Fx(context: Context) {
         runCatching { v.vibrate(VibrationEffect.createOneShot(ms, amp.coerceIn(1, 255))) }
     }
 
-    fun beep(type: Int, ms: Int) {
-        if (!sound) return
-        runCatching { tone?.startTone(type, ms) }
-    }
-
-    fun bump(strength: Float) {
+    /** Uderzenie o ścianę; [v] – prędkość normalna w jednostkach świata/s. */
+    fun bump(v: Float) {
+        synth.hit(v)
         val now = System.currentTimeMillis()
-        if (strength < 1.2f || now - lastBump < 60) return
+        if (v < 4f || now - lastBump < 50) return
         lastBump = now
-        buzz(12, (strength * 28).toInt())
-        if (strength > 3.5f) beep(ToneGenerator.TONE_PROP_BEEP, 15)
+        buzz(8 + (v / 6f).toLong().coerceAtMost(20), (v * 5f).toInt())
     }
 
-    fun gem() { beep(ToneGenerator.TONE_PROP_ACK, 60); buzz(20, 120) }
-    fun fall() { beep(ToneGenerator.TONE_CDMA_PIP, 180); buzz(140, 220) }
-    fun win() { beep(ToneGenerator.TONE_CDMA_CONFIRM, 300); buzz(60, 200) }
-    fun portal() { beep(ToneGenerator.TONE_PROP_PROMPT, 80); buzz(30, 90) }
-    fun check() { beep(ToneGenerator.TONE_PROP_BEEP2, 80); buzz(25, 100) }
+    fun gem() { synth.gem(); buzz(20, 120) }
+    fun fall() { synth.fall(); buzz(140, 220) }
+    fun win() { synth.win(); buzz(60, 200) }
+    fun portal() { synth.portal(); buzz(30, 90) }
+    fun check() { synth.check(); buzz(25, 100) }
     fun boost() { buzz(10, 60) }
 
-    fun release() { runCatching { tone?.release() } }
+    fun release() = synth.stop()
 }

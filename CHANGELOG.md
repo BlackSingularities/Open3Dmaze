@@ -1,5 +1,14 @@
 # Zmiany
 
+## 1.2.0
+
+- Kulka obraca się naprawdę w 3D: plamki na jej powierzchni toczą się zgodnie z kierunkiem ruchu.
+- Dźwięk syntezowany na żywo: szum toczenia zależny od prędkości (inny na lodzie), stuknięcia o ściany zależne od siły uderzenia, dźwięki klejnotów, portali, upadków i mety.
+- Duch rekordu: w kampanii i labiryncie dnia półprzezroczysta kulka powtarza Twój najlepszy przejazd.
+- Przelot nad labiryntem na starcie poziomu i przycisk podglądu całej planszy w trakcie gry.
+- Wibracje uderzeń zależne od ich siły.
+- Gra pauzuje i milknie, gdy przejdziesz do innej aplikacji.
+
 ## 1.1.0
 
 - Prawdziwa fizyka: kulka toczy się jak stalowa kula po pochylonej desce (5/7·g·sin θ), ma opór toczenia, na lodzie ślizga się, a od ścian odbija się z utratą energii.
