@@ -1,5 +1,9 @@
 # Zmiany
 
+## 1.2.1
+
+- Komunikat o nowej wersji bez listy zmian, linków i informacji, skąd pobierana jest aktualizacja.
+
 ## 1.2.0
 
 - Kulka obraca się naprawdę w 3D: plamki na jej powierzchni toczą się zgodnie z kierunkiem ruchu.
