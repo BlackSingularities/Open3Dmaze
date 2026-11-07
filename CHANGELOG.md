@@ -1,5 +1,10 @@
 # Zmiany
 
+## 1.4.0
+
+- Zgłaszanie błędów i sugestii: nowa pozycja „Zgłoś błąd lub sugestię” – opis trafia prosto do autora przez redzikowski.com, e-mail jest opcjonalny.
+- Po nieoczekiwanym zamknięciu aplikacja przy następnym uruchomieniu proponuje wysłanie raportu o błędzie – tylko za zgodą użytkownika.
+
 ## 1.3.1
 
 - Minimapa nie zasłania już labiryntu ani kulki: ma własny pasek pod planszą, a kamera prowadzi kulkę tylko w obszarze nad nim. W podglądzie całości pasek płynnie się chowa.

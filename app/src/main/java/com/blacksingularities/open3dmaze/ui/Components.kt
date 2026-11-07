@@ -204,6 +204,18 @@ fun Credits(modifier: Modifier = Modifier) {
                 .clickable { runCatching { uri.openUri("mailto:kontakt@redzikowski.com") } }
                 .padding(horizontal = 8.dp, vertical = 6.dp),
         )
+        com.blacksingularities.open3dmaze.feedback.FeedbackEntry { open ->
+            Text(
+                com.blacksingularities.open3dmaze.feedback.FeedbackText.entryTitle,
+                color = Palette.TextDim,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { open() }
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+            )
+        }
         Spacer(Modifier.height(10.dp))
         Row(
             Modifier.heightIn(min = 46.dp).clip(RoundedCornerShape(50)).background(Palette.Coffee)

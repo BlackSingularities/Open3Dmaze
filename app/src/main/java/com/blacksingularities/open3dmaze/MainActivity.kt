@@ -1,5 +1,7 @@
 package com.blacksingularities.open3dmaze
 
+import com.blacksingularities.open3dmaze.feedback.Feedback
+import com.blacksingularities.open3dmaze.feedback.CrashReportPrompt
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -15,6 +17,7 @@ import com.blacksingularities.open3dmaze.ui.MazeTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Feedback.install(this, "open3dmaze")
         Store.init(applicationContext)
         enableEdgeToEdge()
         // Gra steruje się pochyleniem, więc ekran nie może gasnąć w trakcie.
@@ -23,6 +26,6 @@ class MainActivity : ComponentActivity() {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             hide(WindowInsetsCompat.Type.systemBars())
         }
-        setContent { MazeTheme { App() } }
+        setContent { MazeTheme { CrashReportPrompt(); App() } }
     }
 }
