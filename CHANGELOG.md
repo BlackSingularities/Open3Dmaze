@@ -1,5 +1,9 @@
 # Zmiany
 
+## 1.3.1
+
+- Minimapa nie zasłania już labiryntu ani kulki: ma własny pasek pod planszą, a kamera prowadzi kulkę tylko w obszarze nad nim. W podglądzie całości pasek płynnie się chowa.
+
 ## 1.3.0
 
 - Kulka nie wjeżdża już optycznie pod ściany: gdy dotyka ściany od Twojej strony, jest rysowana przed nią, a zasłaniają ją tylko ściany, które naprawdę stoją między nią a kamerą. Podłoga i podstawy ścian leżą teraz na jednym poziomie. To samo dotyczy klejnotów i ducha rekordu.

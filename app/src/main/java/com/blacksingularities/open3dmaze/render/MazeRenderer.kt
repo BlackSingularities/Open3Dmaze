@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.IntOffset
@@ -60,6 +61,7 @@ class MazeRenderer {
     private var vxS = Float.NaN
     private var vyS = Float.NaN
     private var curSc = Float.NaN
+    private var bandS = Float.NaN
     private var mapFor: Level? = null
     private var map: ImageBitmap? = null
     private val objId = IntArray(64)
@@ -93,9 +95,18 @@ class MazeRenderer {
     ) = with(ds) {
         val lv = g.level
         val w = size.width
-        val h = size.height
+        val fullH = size.height
         // Podgląd całości: skala dopasowana do labiryntu; przejście jest płynne w obie strony.
         val playSc = w / (7.2f * (1f + WALL_T) / st.zoom.coerceIn(0.5f, 2f))
+        // Minimapa dostaje własny pasek pod planszą – nigdy nie leży na labiryncie ani na kulce.
+        // Plansza i kamera liczą się tylko w obszarze nad paskiem.
+        val mapOn = hud && !overview && st.minimap && !lv.spec.dark &&
+            (lv.worldW > w / playSc || lv.worldH > fullH / playSc)
+        val mapS = min(w * 0.62f / lv.gw, fullH * 0.15f / lv.gh)
+        val bandFull = lv.gh * mapS + MAP_PAD_TOP * density + MAP_PAD_BOTTOM * density
+        val bandTarget = if (mapOn) bandFull else 0f
+        bandS = if (bandS.isNaN()) bandTarget else bandS + (bandTarget - bandS) * (1f - exp(-6f * dt))
+        val h = fullH - bandS
         val fitSc = min(w / (lv.worldW + 1.2f), h / (lv.worldH + 1.2f)).coerceAtMost(playSc)
         val targetSc = if (overview) fitSc else playSc
         curSc = if (curSc.isNaN()) targetSc else curSc + (targetSc - curSc) * (1f - exp(-3.5f * dt))
@@ -139,6 +150,7 @@ class MazeRenderer {
 
         // Tło i deska z fakturą, przesuwana razem z labiryntem.
         drawRect(Color.Black)
+        clipRect(0f, 0f, w, h) {
         val ox = sx(0f); val oy = sy(0f)
         translate(ox, oy) {
             drawRect(Color(0xFF0B0B0C), Offset.Zero, Size(lv.worldW * sc, lv.worldH * sc))
@@ -372,28 +384,31 @@ class MazeRenderer {
 
         // Winieta – światło skupione na środku planszy.
         drawRect(Brush.radialGradient(0.55f to Color.Transparent, 1f to Color(0xA0000000), center = Offset(cx, cy), radius = max(w, h) * 0.75f))
+        }
 
-        if (hud && !overview && st.minimap && !lv.spec.dark && (lv.worldW > viewW || lv.worldH > viewH)) drawMinimap(g, accent, viewW, viewH)
+        if (bandS > 1f) drawMinimap(g, accent, viewW, viewH, h, mapS * (bandS / bandFull).coerceIn(0f, 1f))
         if (dim > 0f) drawRect(Color.Black.copy(alpha = dim))
     }
 
-    private fun DrawScope.drawMinimap(g: Game, accent: Color, viewW: Float, viewH: Float) {
+    /** Pasek pod planszą z minimapą; [top] to górna krawędź paska. */
+    private fun DrawScope.drawMinimap(g: Game, accent: Color, viewW: Float, viewH: Float, top0: Float, s: Float) {
         val lv = g.level
         if (mapFor !== lv) { map = buildMap(lv); mapFor = lv }
         val img = map ?: return
-        val maxW = size.width * 0.30f
-        val maxH = size.height * 0.24f
-        val s = min(maxW / lv.gw, maxH / lv.gh)
+        // Oddzielenie paska od planszy: górna linia i miękki cień.
+        drawRect(Brush.verticalGradient(listOf(Color(0x66000000), Color.Transparent), startY = top0, endY = top0 + 18f * density), Offset(0f, top0), Size(size.width, 18f * density))
+        drawLine(Color(0x24FFFFFF), Offset(0f, top0), Offset(size.width, top0), 1f)
         val mw = lv.gw * s; val mh = lv.gh * s
-        val left = 16f * density / 2.6f + 8f
-        val top = size.height - mh - 24f * density
-        drawRoundRect(Color(0xCC000000), Offset(left - 6f, top - 6f), Size(mw + 12f, mh + 12f), CornerRadius(10f))
-        drawImage(img, IntOffset.Zero, IntSize(lv.gw, lv.gh), IntOffset(left.toInt(), top.toInt()), IntSize(mw.toInt(), mh.toInt()), alpha = 0.8f, filterQuality = FilterQuality.None)
+        if (mw < 2f || mh < 2f) return
+        val left = (size.width - mw) / 2f
+        val top = top0 + MAP_PAD_TOP * density
+        drawRoundRect(Color(0xFF0E0F13), Offset(left - 6f, top - 6f), Size(mw + 12f, mh + 12f), CornerRadius(10f))
+        drawImage(img, IntOffset.Zero, IntSize(lv.gw, lv.gh), IntOffset(left.toInt(), top.toInt()), IntSize(mw.toInt(), mh.toInt()), alpha = 0.85f, filterQuality = FilterQuality.None)
         val fx = lv.worldW
         val fy = lv.worldH
         fun mx(v: Float) = left + v / fx * mw
         fun my(v: Float) = top + v / fy * mh
-        drawRect(Color(0x55FFFFFF), Offset(mx(camX - viewW / 2f), my(camY - viewH / 2f)), Size(viewW / fx * mw, viewH / fy * mh), style = Stroke(1.5f))
+        drawRect(Color(0x66FFFFFF), Offset(mx(camX - viewW / 2f), my(camY - viewH / 2f)), Size(viewW / fx * mw, viewH / fy * mh), style = Stroke(1.5f))
         drawCircle(accent, max(3f, s * 1.2f), Offset(mx(lv.cx(lv.goal)), my(lv.cy(lv.goal))))
         drawCircle(Color.White, max(3f, s * 1.1f), Offset(mx(g.x), my(g.y)))
     }
@@ -514,6 +529,8 @@ class MazeRenderer {
     companion object {
         private const val OBJ_BALL = -1
         private const val OBJ_GHOST = -2
+        private const val MAP_PAD_TOP = 12f
+        private const val MAP_PAD_BOTTOM = 30f
 
         /** Rozmieszczenie plamek na kuli (wektory jednostkowe, ściany sześcianu). */
         private val SPOTS = floatArrayOf(1f, 0f, 0f, -1f, 0f, 0f, 0f, 1f, 0f, 0f, -1f, 0f, 0f, 0f, 1f, 0f, 0f, -1f)
