@@ -57,7 +57,12 @@ import kotlin.random.Random
 
 @Composable
 private fun Screen(title: String, onBack: () -> Unit, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().background(Color.Black).windowInsetsPadding(WindowInsets.safeDrawing)) {
+    val accent = accentColor()
+    Column(
+        Modifier.fillMaxSize().background(Color.Black)
+            .background(Brush.radialGradient(listOf(accent.copy(alpha = 0.16f), Color.Transparent), center = Offset(0f, 0f), radius = 1400f))
+            .windowInsetsPadding(WindowInsets.safeDrawing),
+    ) {
         TopBar(title, onBack)
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp), content = content)
     }
@@ -80,10 +85,13 @@ fun CampaignScreen(onBack: () -> Unit, onPlay: (Int) -> Unit) {
                             val open = progress.unlocked(i)
                             val st = progress.stars[i]
                             Column(
-                                Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(16.dp))
-                                    .background(if (st == 3) accent.copy(alpha = 0.18f) else Palette.PanelHigh)
-                                    .border(1.dp, if (st > 0) accent.copy(alpha = 0.6f) else Palette.Line, RoundedCornerShape(16.dp))
-                                    .clickable(enabled = open) { onPlay(i) },
+                                Modifier.weight(1f).aspectRatio(1f).press3d(enabled = open) { onPlay(i) }
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(
+                                        if (st == 3) Brush.verticalGradient(listOf(accent.copy(alpha = 0.32f), accent.copy(alpha = 0.10f)))
+                                        else Brush.verticalGradient(listOf(Color(0xFF23242B), Color(0xFF14151A))),
+                                    )
+                                    .border(1.dp, if (st > 0) accent.copy(alpha = 0.6f) else Palette.Line, RoundedCornerShape(16.dp)),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center,
                             ) {

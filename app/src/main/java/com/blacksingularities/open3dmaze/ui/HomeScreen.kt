@@ -1,5 +1,8 @@
 package com.blacksingularities.open3dmaze.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -47,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -72,99 +76,113 @@ fun HomeScreen(nav: (Route) -> Unit, play: (Mode) -> Unit) {
     val update = rememberUpdateState()
     LaunchedEffect(settings.autoUpdate) { if (settings.autoUpdate) update.check() }
 
+    val fx = rememberTiltFx(tilt)
+    // Wejście: elementy wyjeżdżają z głębi jeden po drugim.
+    val enter = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { enter.animateTo(1f, tween(900, easing = FastOutSlowInEasing)) }
+    fun Modifier.rise(order: Int): Modifier = graphicsLayer {
+        val t = (enter.value * 1.75f - order * 0.12f).coerceIn(0f, 1f)
+        alpha = t
+        translationY = (1f - t) * 60f * density
+        rotationX = (1f - t) * 35f
+        cameraDistance = 16f * density
+    }
+
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        MazeView(demo, tilt, paused = false, modifier = Modifier.fillMaxSize(), dim = 0.8f, hud = false) {
+        MazeView(demo, tilt, paused = false, modifier = Modifier.fillMaxSize(), dim = 0.55f, hud = false) {
             demo.events.clear()
             if (demo.phase == Phase.WON && demo.winT > 2.5f) demo = newDemo()
         }
-        // Przyciemnienie od góry, żeby tytuł i karty były czytelne nad żywym tłem.
+        // Przyciemnienie u góry i u dołu – środek zostaje jasny, żeby żywy labirynt było widać.
         Box(
             Modifier.fillMaxSize().background(
-                Brush.verticalGradient(0f to Color(0xF2000000), 0.45f to Color(0xB3000000), 1f to Color(0xE6000000)),
+                Brush.verticalGradient(0f to Color(0xF2000000), 0.32f to Color(0x80000000), 0.55f to Color(0x66000000), 1f to Color(0xF2000000)),
             ),
         )
         Column(
-            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
         ) {
-            Spacer(Modifier.height(36.dp))
-            Text("Open3Dmaze", color = Color.White, fontSize = 44.sp, fontWeight = FontWeight.Black, letterSpacing = (-1).sp)
-            Text("Pochyl telefon. Ściany pójdą za Tobą.", color = Palette.TextDim, fontSize = 16.sp)
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Pill("★ ${progress.totalStars}/${Campaign.COUNT * 3}")
-                Pill("Ukończone: ${progress.levelsDone}")
-                if (progress.dailyStreak > 0) Pill("🔥 ${progress.dailyStreak}")
+            Spacer(Modifier.height(40.dp))
+            Column(Modifier.rise(0).tilt3d(fx, 10f)) {
+                ExtrudedText("Open3Dmaze", accent)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    buildString {
+                        append("★ ${progress.totalStars}/${Campaign.COUNT * 3}")
+                        if (progress.dailyStreak > 0) append("   🔥 ${progress.dailyStreak}")
+                    },
+                    color = Palette.TextDim, fontSize = 15.sp, fontWeight = FontWeight.Medium,
+                )
             }
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(28.dp))
 
             update.Banner()
 
             val nextLevel = (0 until Campaign.COUNT).firstOrNull { progress.stars[it] == 0 } ?: (Campaign.COUNT - 1)
-            Box(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(accent).clickable { play(Mode.CAMPAIGN) }.padding(20.dp),
-            ) {
-                Column {
-                    Text("Graj", color = Color.Black, fontSize = 26.sp, fontWeight = FontWeight.Black)
-                    Text("Kampania · poziom ${Campaign.name(nextLevel)} · ${Campaign.worlds[nextLevel / Campaign.PER_WORLD].name}", color = Color(0xB3000000), fontSize = 14.sp)
+            SlabButton(
+                "Graj",
+                Modifier.fillMaxWidth().rise(1).tilt3d(fx, 6f),
+                subtitle = "Poziom ${Campaign.name(nextLevel)} · ${Campaign.worlds[nextLevel / Campaign.PER_WORLD].name}",
+                big = true,
+            ) { play(Mode.CAMPAIGN) }
+            Spacer(Modifier.height(18.dp))
+
+            val dailyDone = progress.dailyDone == LocalDate.now().toString()
+            val tiles = listOf(
+                Tile(Icons.Rounded.Map, "Poziomy", "${Campaign.COUNT} w ${Campaign.WORLDS} światach") { nav(Route.CampaignMap) },
+                Tile(Icons.Rounded.Today, "Dnia", if (dailyDone) "Ukończony ✓" else "Nowy dziś") { play(Mode.DAILY) },
+                Tile(Icons.Rounded.AllInclusive, "Bez końca", "Rekord ${progress.endlessBest}") { play(Mode.ENDLESS) },
+                Tile(Icons.Rounded.Timer, "Na czas", "Rekord ${progress.timeAttackBest}") { play(Mode.TIME_ATTACK) },
+                Tile(Icons.Rounded.DarkMode, "Mrok", "Rekord ${progress.darkBest}") { play(Mode.DARK) },
+                Tile(Icons.Rounded.SelfImprovement, "Zen", "Bez pułapek") { play(Mode.ZEN) },
+            )
+            tiles.chunked(2).forEachIndexed { r, row ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 5.dp).rise(2 + r).tilt3d(fx, 5f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    row.forEach { ModeTile(it, Modifier.weight(1f)) }
                 }
             }
-            Spacer(Modifier.height(10.dp))
-            ModeCard(Icons.Rounded.Map, "Wybór poziomu", "${Campaign.WORLDS} światów, ${Campaign.COUNT} poziomów") { nav(Route.CampaignMap) }
-            val dailyDone = progress.dailyDone == LocalDate.now().toString()
-            ModeCard(Icons.Rounded.Today, Mode.DAILY.title, if (dailyDone) "Ukończony dziś – popraw czas" else Mode.DAILY.subtitle) { play(Mode.DAILY) }
-            ModeCard(Icons.Rounded.AllInclusive, Mode.ENDLESS.title, "Rekord: etap ${progress.endlessBest}") { play(Mode.ENDLESS) }
-            ModeCard(Icons.Rounded.Timer, Mode.TIME_ATTACK.title, "Rekord: ${progress.timeAttackBest} labiryntów") { play(Mode.TIME_ATTACK) }
-            ModeCard(Icons.Rounded.DarkMode, Mode.DARK.title, "Rekord: etap ${progress.darkBest}") { play(Mode.DARK) }
-            ModeCard(Icons.Rounded.SelfImprovement, Mode.ZEN.title, Mode.ZEN.subtitle) { play(Mode.ZEN) }
-            ModeCard(Icons.Rounded.Tune, Mode.CUSTOM.title, Mode.CUSTOM.subtitle) { nav(Route.Custom) }
 
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                SmallTile(Icons.Rounded.BarChart, "Statystyki", Modifier.weight(1f)) { nav(Route.Stats) }
-                SmallTile(Icons.Rounded.Settings, "Ustawienia", Modifier.weight(1f)) { nav(Route.Settings) }
-                SmallTile(Icons.Rounded.Info, "O aplikacji", Modifier.weight(1f)) { nav(Route.About) }
+            Spacer(Modifier.height(18.dp))
+            Row(
+                Modifier.fillMaxWidth().rise(6),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                RoundButton(Icons.Rounded.Tune, "Własny") { nav(Route.Custom) }
+                RoundButton(Icons.Rounded.BarChart, "Statystyki") { nav(Route.Stats) }
+                RoundButton(Icons.Rounded.Settings, "Ustawienia") { nav(Route.Settings) }
+                RoundButton(Icons.Rounded.Info, "O grze") { nav(Route.About) }
             }
-            Spacer(Modifier.height(24.dp))
-            Credits()
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(28.dp))
         }
     }
 }
 
-@Composable
-private fun Pill(text: String) {
-    Box(Modifier.clip(RoundedCornerShape(50)).background(Color(0xB3000000)).border(1.dp, Palette.Line, RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 6.dp)) {
-        Text(text, color = Color.White, fontSize = 13.sp)
-    }
-}
+private class Tile(val icon: ImageVector, val title: String, val subtitle: String, val onClick: () -> Unit)
 
 @Composable
-private fun ModeCard(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(22.dp)).background(Color(0xF00A0A0A))
-            .border(1.dp, Palette.Line, RoundedCornerShape(22.dp)).clickable(onClick = onClick).heightIn(min = 68.dp).padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(42.dp).clip(CircleShape).background(Palette.PanelHigh), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = accentColor())
-        }
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, color = Palette.TextDim, fontSize = 13.sp)
-        }
-    }
-}
-
-@Composable
-private fun SmallTile(icon: ImageVector, title: String, modifier: Modifier, onClick: () -> Unit) {
+private fun ModeTile(t: Tile, modifier: Modifier) {
+    val accent = accentColor()
     Column(
-        modifier.clip(RoundedCornerShape(20.dp)).background(Color(0xF00A0A0A)).border(1.dp, Palette.Line, RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick).padding(vertical = 14.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier.press3d(onClick = t.onClick).glass(RoundedCornerShape(22.dp)).padding(14.dp),
     ) {
-        Icon(icon, null, tint = Color.White)
+        Box(
+            Modifier.size(38.dp).clip(RoundedCornerShape(12.dp))
+                .background(Brush.linearGradient(listOf(accent.copy(alpha = 0.35f), accent.copy(alpha = 0.08f)))),
+            contentAlignment = Alignment.Center,
+        ) { Icon(t.icon, null, tint = accent, modifier = Modifier.size(22.dp)) }
+        Spacer(Modifier.height(10.dp))
+        Text(t.title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Text(t.subtitle, color = Palette.TextDim, fontSize = 13.sp, maxLines = 1)
+    }
+}
+
+@Composable
+private fun RoundButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Column(Modifier.press3d(onClick = onClick).padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(52.dp).glass(CircleShape), contentAlignment = Alignment.Center) {
+            Icon(icon, label, tint = Color.White)
+        }
         Spacer(Modifier.height(6.dp))
-        Text(title, color = Color.White, fontSize = 13.sp)
+        Text(label, color = Palette.TextDim, fontSize = 12.sp)
     }
 }

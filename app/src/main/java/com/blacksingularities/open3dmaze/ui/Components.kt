@@ -32,7 +32,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
@@ -57,11 +59,11 @@ fun TopBar(title: String, onBack: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onBack),
+            Modifier.size(46.dp).press3d(onClick = onBack).glass(CircleShape),
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Wstecz", tint = Color.White) }
-        Spacer(Modifier.width(8.dp))
-        Text(title, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+        Spacer(Modifier.width(14.dp))
+        Text(title, fontSize = 26.sp, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = (-0.5).sp)
     }
 }
 
@@ -75,8 +77,7 @@ fun Panel(modifier: Modifier = Modifier, title: String? = null, content: @Compos
             )
         }
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Palette.Panel)
-                .border(1.dp, Palette.Line, RoundedCornerShape(22.dp)).padding(vertical = 6.dp),
+            Modifier.fillMaxWidth().glass(RoundedCornerShape(24.dp)).padding(vertical = 6.dp),
             content = content,
         )
     }
@@ -89,7 +90,11 @@ fun ActionRow(icon: ImageVector?, title: String, subtitle: String? = null, tint:
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            Box(Modifier.size(40.dp).clip(CircleShape).background(Palette.PanelHigh), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier.size(40.dp).clip(CircleShape)
+                    .background(Brush.verticalGradient(listOf(Color(0xFF2A2B33), Color(0xFF15161B)))),
+                contentAlignment = Alignment.Center,
+            ) {
                 Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
             }
             Spacer(Modifier.width(14.dp))
@@ -152,9 +157,12 @@ fun <T> ChoiceRow(title: String, options: List<T>, selected: Int, label: (T) -> 
             options.forEachIndexed { i, o ->
                 val on = i == selected
                 Box(
-                    Modifier.weight(1f).heightIn(min = 44.dp).clip(RoundedCornerShape(14.dp))
-                        .background(if (on) accent else Palette.PanelHigh)
-                        .clickable { onSelect(i) }.padding(horizontal = 6.dp),
+                    Modifier.weight(1f).press3d { onSelect(i) }.heightIn(min = 44.dp).clip(RoundedCornerShape(14.dp))
+                        .background(
+                            if (on) Brush.verticalGradient(listOf(lerp(accent, Color.White, 0.25f), accent))
+                            else Brush.verticalGradient(listOf(Color(0xFF22232A), Color(0xFF15161B))),
+                        )
+                        .padding(horizontal = 6.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(label(o), color = if (on) Color.Black else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
@@ -166,18 +174,13 @@ fun <T> ChoiceRow(title: String, options: List<T>, selected: Int, label: (T) -> 
 
 @Composable
 fun PrimaryButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val accent = accentColor()
-    Box(
-        modifier.heightIn(min = 52.dp).clip(RoundedCornerShape(50)).background(accent).clickable(onClick = onClick).padding(horizontal = 24.dp),
-        contentAlignment = Alignment.Center,
-    ) { Text(text, color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+    SlabButton(text, modifier, onClick = onClick)
 }
 
 @Composable
 fun GhostButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
-        modifier.heightIn(min = 52.dp).clip(RoundedCornerShape(50)).border(1.dp, Palette.Line, RoundedCornerShape(50))
-            .background(Palette.Panel).clickable(onClick = onClick).padding(horizontal = 24.dp),
+        modifier.press3d(onClick = onClick).heightIn(min = 52.dp).glass(RoundedCornerShape(20.dp)).padding(horizontal = 24.dp),
         contentAlignment = Alignment.Center,
     ) { Text(text, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp) }
 }

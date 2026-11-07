@@ -3,7 +3,15 @@ package com.blacksingularities.open3dmaze.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,7 +51,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -80,6 +95,7 @@ fun GameScreen(session: Session, onExit: () -> Unit, onNextCampaign: (Int) -> Un
     val settings by Store.settings.collectAsState()
     val accent = accentColor()
     val tilt = rememberTilt()
+    val tiltFx = rememberTiltFx(tilt)
     val fx = remember { Fx(ctx.applicationContext) }
     DisposableEffect(Unit) {
         fx.start()
@@ -285,51 +301,51 @@ fun GameScreen(session: Session, onExit: () -> Unit, onNextCampaign: (Int) -> Un
             g.events.clear()
         }
 
-        // Pasek u góry.
+        // Pasek u góry: pauza, nazwa i czas pośrodku, licznik klejnotów/żyć, podgląd mapy.
         Row(
             Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing).padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Chip {
-                Text(session.title(), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            }
-            Spacer(Modifier.weight(1f))
-            if (game.level.gems.isNotEmpty()) {
-                Chip {
-                    Icon(Icons.Rounded.Diamond, null, tint = Color(0xFF7CF7FF), modifier = Modifier.size(16.dp))
-                    Text(" $gemsHud/${game.level.gems.size}", color = Color.White, fontSize = 14.sp)
+            HudButton(Icons.Rounded.Pause, "Pauza", false, accent) { paused = true }
+            Column(Modifier.weight(1f).padding(horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(session.title(), color = Palette.TextDim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, letterSpacing = 0.5.sp)
+                if (session.countdown) {
+                    TimeText({ timeLeft }) { if (it < 10f) Palette.Danger else accent }
+                } else if (settings.showTimer) {
+                    TimeText({ clock }) { Color.White }
                 }
-                Spacer(Modifier.size(6.dp))
             }
-            if (session.usesLives) {
-                Chip {
-                    Icon(Icons.Rounded.Favorite, null, tint = Palette.Danger, modifier = Modifier.size(16.dp))
-                    Text(" $lives", color = Color.White, fontSize = 14.sp)
+            if (game.level.gems.isNotEmpty() || session.usesLives) {
+                Row(
+                    Modifier.glass(RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (game.level.gems.isNotEmpty()) {
+                        Icon(Icons.Rounded.Diamond, null, tint = Color(0xFF7CF7FF), modifier = Modifier.size(16.dp))
+                        Text(" $gemsHud/${game.level.gems.size}", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    if (game.level.gems.isNotEmpty() && session.usesLives) Spacer(Modifier.size(10.dp))
+                    if (session.usesLives) {
+                        Icon(Icons.Rounded.Favorite, null, tint = Palette.Danger, modifier = Modifier.size(16.dp))
+                        Text(" $lives", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
-                Spacer(Modifier.size(6.dp))
+                Spacer(Modifier.size(8.dp))
             }
-            if (session.countdown) {
-                Chip { TimeText({ timeLeft }) { if (it < 10f) Palette.Danger else accent } }
-            } else if (settings.showTimer) {
-                Chip { TimeText({ clock }) { Color.White } }
-            }
-            Spacer(Modifier.size(6.dp))
-            Box(
-                Modifier.size(40.dp).clip(CircleShape).background(if (overview) accent else Color(0xB3000000)).border(1.dp, Palette.Line, CircleShape)
-                    .clickable { overview = !overview },
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Rounded.Map, "Podgląd labiryntu", tint = if (overview) Color.Black else Color.White) }
-            Spacer(Modifier.size(6.dp))
-            Box(
-                Modifier.size(40.dp).clip(CircleShape).background(Color(0xB3000000)).border(1.dp, Palette.Line, CircleShape)
-                    .clickable { paused = true },
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Rounded.Pause, "Pauza", tint = Color.White) }
+            HudButton(Icons.Rounded.Map, "Podgląd labiryntu", overview, accent) { overview = !overview }
         }
 
-        AnimatedVisibility(intro && outcome == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.Center)) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clip(RoundedCornerShape(24.dp)).background(Color(0xCC000000)).padding(24.dp)) {
-                Text(session.title(), color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        AnimatedVisibility(
+            intro && outcome == null,
+            enter = fadeIn() + scaleIn(initialScale = 0.6f),
+            exit = fadeOut() + scaleOut(targetScale = 1.25f),
+            modifier = Modifier.align(Alignment.Center),
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.tilt3d(tiltFx, 12f).glass(RoundedCornerShape(28.dp)).padding(horizontal = 28.dp, vertical = 22.dp),
+            ) {
+                ExtrudedText(session.title(), accent, fontSize = 32)
                 val sub = when (session.mode) {
                     Mode.CAMPAIGN -> Campaign.worlds[session.index / Campaign.PER_WORLD].name + " · par ${game.level.parSeconds} s"
                     else -> session.mode.subtitle
@@ -338,14 +354,24 @@ fun GameScreen(session: Session, onExit: () -> Unit, onNextCampaign: (Int) -> Un
             }
         }
 
-        AnimatedVisibility(toast != null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing).padding(24.dp)) {
-            Box(Modifier.clip(RoundedCornerShape(50)).background(accent).padding(horizontal = 20.dp, vertical = 12.dp)) {
-                Text("🏆 " + (toast ?: ""), color = Color.Black, fontWeight = FontWeight.SemiBold)
+        AnimatedVisibility(
+            toast != null,
+            enter = fadeIn() + slideInVertically { it },
+            exit = fadeOut() + slideOutVertically { it },
+            modifier = Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing).padding(24.dp),
+        ) {
+            Row(
+                Modifier.glass(RoundedCornerShape(50)).padding(horizontal = 18.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("🏆", fontSize = 18.sp)
+                Spacer(Modifier.size(10.dp))
+                Text(toast ?: "", color = Color.White, fontWeight = FontWeight.SemiBold)
             }
         }
 
         if (paused && outcome == null) {
-            Overlay {
+            Overlay(tiltFx) {
                 Text("Pauza", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
                 Text(session.title() + " · " + formatTime(game.time), color = Palette.TextDim)
@@ -375,15 +401,9 @@ fun GameScreen(session: Session, onExit: () -> Unit, onNextCampaign: (Int) -> Un
 
         val o = outcome
         if (o != null && !(o.win && session.mode == Mode.TIME_ATTACK)) {
-            Overlay {
-                Text(if (o.win) "Meta!" else "Koniec gry", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Bold)
-                if (o.win && session.mode == Mode.CAMPAIGN) {
-                    Row(Modifier.padding(vertical = 8.dp)) {
-                        repeat(3) { i ->
-                            Text("★", fontSize = 44.sp, color = if (i < o.stars) Palette.Gold else Color(0x33FFFFFF))
-                        }
-                    }
-                }
+            Overlay(tiltFx) {
+                ExtrudedText(if (o.win) "Meta!" else "Koniec gry", if (o.win) accent else Palette.Danger, fontSize = 38)
+                if (o.win && session.mode == Mode.CAMPAIGN) StarRow(o.stars)
                 Spacer(Modifier.height(6.dp))
                 StatLine("Czas", formatTime(o.time) + if (o.win && session.mode == Mode.CAMPAIGN) "  (par ${o.par} s)" else "")
                 if (o.gemsTotal > 0) StatLine("Klejnoty", "${o.gems}/${o.gemsTotal}")
@@ -423,27 +443,71 @@ fun GameScreen(session: Session, onExit: () -> Unit, onNextCampaign: (Int) -> Un
 @Composable
 private fun TimeText(read: () -> Float, color: (Float) -> Color) {
     val v = read()
-    Text(formatTime(v), color = color(v), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+    Text(formatTime(v), color = color(v), fontFamily = FontFamily.Monospace, fontSize = 20.sp, fontWeight = FontWeight.Bold)
 }
 
 @Composable
-private fun Chip(content: @Composable () -> Unit) {
-    Row(
-        Modifier.clip(RoundedCornerShape(50)).background(Color(0xB3000000)).border(1.dp, Palette.Line, RoundedCornerShape(50))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) { content() }
+private fun HudButton(icon: ImageVector, label: String, active: Boolean, accent: Color, onClick: () -> Unit) {
+    Box(
+        Modifier.size(44.dp).press3d(onClick = onClick).then(
+            if (active) Modifier.clip(CircleShape).background(Brush.verticalGradient(listOf(lerp(accent, Color.White, 0.3f), accent)))
+            else Modifier.glass(CircleShape),
+        ),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, label, tint = if (active) Color.Black else Color.White) }
 }
 
+/** Karta nad planszą: wjeżdża z głębi, odchylona do tyłu, i dalej przechyla się z telefonem. */
 @Composable
-private fun Overlay(content: @Composable () -> Unit) {
-    Box(Modifier.fillMaxSize().background(Color(0xD9000000)).clickable(enabled = true, onClick = {}), contentAlignment = Alignment.Center) {
+private fun Overlay(fx: TiltFx, content: @Composable ColumnScope.() -> Unit) {
+    val a = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { a.animateTo(1f, spring(dampingRatio = 0.68f, stiffness = 240f)) }
+    Box(
+        Modifier.fillMaxSize()
+            .graphicsLayer { alpha = a.value.coerceIn(0f, 1f) }
+            .background(Brush.radialGradient(listOf(Color(0x99000000), Color(0xF0000000))))
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {}),
+        contentAlignment = Alignment.Center,
+    ) {
         Column(
-            Modifier.widthIn(max = 420.dp).fillMaxWidth().padding(24.dp).clip(RoundedCornerShape(28.dp))
-                .background(Palette.Panel).border(1.dp, Palette.Line, RoundedCornerShape(28.dp)).padding(24.dp),
+            Modifier.widthIn(max = 420.dp).fillMaxWidth().padding(24.dp)
+                .graphicsLayer {
+                    val v = a.value
+                    scaleX = 0.8f + 0.2f * v; scaleY = 0.8f + 0.2f * v
+                    rotationX = (1f - v) * 60f
+                    translationY = (1f - v) * 80f * density
+                    cameraDistance = 16f * density
+                }
+                .tilt3d(fx, 6f)
+                .glass(RoundedCornerShape(30.dp)).padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) { content() }
+    }
+}
+
+/** Gwiazdki wyskakują po kolei; zdobyte świecą. */
+@Composable
+private fun StarRow(stars: Int) {
+    Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        repeat(3) { i ->
+            val sc = remember { Animatable(0f) }
+            LaunchedEffect(Unit) {
+                delay(300L + i * 240L)
+                sc.animateTo(1f, spring(dampingRatio = 0.38f, stiffness = 320f))
+            }
+            val on = i < stars
+            Text(
+                "★", fontSize = 50.sp, color = if (on) Palette.Gold else Color(0x26FFFFFF),
+                style = TextStyle(shadow = if (on) Shadow(Palette.Gold.copy(alpha = 0.7f), Offset.Zero, 28f) else null),
+                modifier = Modifier.graphicsLayer {
+                    scaleX = sc.value; scaleY = sc.value
+                    rotationZ = (1f - sc.value) * -120f
+                    rotationY = (1f - sc.value) * 90f
+                    cameraDistance = 12f * density
+                },
+            )
+        }
     }
 }
 

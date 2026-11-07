@@ -62,6 +62,20 @@ class MazeRenderer {
     private var curSc = Float.NaN
     private var mapFor: Level? = null
     private var map: ImageBitmap? = null
+    private val objId = IntArray(64)
+    private val objX = FloatArray(64)
+    private val objY = FloatArray(64)
+    private val objDone = BooleanArray(64)
+    private var ghostWX = 0f
+    private var ghostWY = 0f
+
+    /**
+     * Czy ściana [x0..x1]×[y0..y1] zasłania obiekt stojący w punkcie (px, py) podłogi.
+     * Kamera wisi nad punktem zbiegu (vX, vY). Obiekt jest przed ścianą, jeśli leży po tej samej
+     * stronie którejś z widocznych płaszczyzn ściany co kamera; inaczej jest za nią.
+     */
+    private fun hides(vX: Float, vY: Float, px: Float, py: Float, x0: Float, y0: Float, x1: Float, y1: Float): Boolean =
+        !((vX < x0 && px < x0) || (vX > x1 && px > x1) || (vY < y0 && py < y0) || (vY > y1 && py > y1))
 
     fun draw(
         ds: DrawScope,
@@ -248,45 +262,45 @@ class MazeRenderer {
             }
         }
 
-        // Klejnoty unoszą się nad podłogą i rzucają cień.
+        // Kulka, duch i klejnoty są wyższe od podłogi, więc nie mogą leżeć pod ścianami: każdy z nich
+        // trafia między ściany tuż przed pierwszą, która go naprawdę zasłania (patrz [hides]).
+        // Wcześniej ściany zawsze przykrywały kulkę – gdy dotykała ściany od strony gracza, wyglądało
+        // to tak, jakby wjeżdżała pod nią, a podłoga leżała niżej niż podstawy ścian.
+        var objN = 0
         for (q in lv.gems.indices) {
             if (g.collected[q]) continue
             val c = lv.gems[q]
             val px = sx(lv.cx(c)); val py = sy(lv.cy(c))
             if (px < -unit || px > w + unit || py < -unit || py > h + unit) continue
-            val hh = 0.55f + 0.12f * sin(time * 2.4f + q)
-            drawOval(Color(0x88000000), Offset(px + shX * hh - unit * 0.16f, py + shY * hh - unit * 0.09f), Size(unit * 0.32f, unit * 0.18f))
-            val gpx = lx(px, hh); val gpy = ly(py, hh)
-            val s = unit * 0.2f * (1f + k * hh)
-            val spin = cos(time * 2f + q * 1.3f)
-            drawCircle(Brush.radialGradient(listOf(Color(0x5560F0FF), Color.Transparent), Offset(gpx, gpy), s * 2.2f), s * 2.2f, Offset(gpx, gpy))
-            path.reset()
-            path.moveTo(gpx, gpy - s * 1.25f); path.lineTo(gpx + s * spin, gpy); path.lineTo(gpx, gpy + s * 1.25f); path.lineTo(gpx - s * spin, gpy); path.close()
-            drawPath(path, Color(0xFF3CC8E0))
-            path.reset()
-            path.moveTo(gpx, gpy - s * 1.25f); path.lineTo(gpx + s * spin, gpy); path.lineTo(gpx, gpy); path.close()
-            drawPath(path, Color(0xFFBFFBFF))
-            path.reset()
-            path.moveTo(gpx, gpy + s * 1.25f); path.lineTo(gpx - s * spin, gpy); path.lineTo(gpx, gpy); path.close()
-            drawPath(path, Color(0xFF1E7F96))
+            if (objN < objId.size - 2) { objId[objN] = q; objX[objN] = px; objY[objN] = py; objN++ }
         }
-
         g.ghost?.let { gh ->
             val n = gh.size / 2
             if (n > 1 && g.phase != Phase.WON) {
                 val f = (g.time / com.blacksingularities.open3dmaze.game.GHOST_DT).coerceIn(0f, (n - 1).toFloat())
                 val i = f.toInt().coerceAtMost(n - 2)
                 val u = f - i
-                val gxw = gh[2 * i] + (gh[2 * i + 2] - gh[2 * i]) * u
-                val gyw = gh[2 * i + 1] + (gh[2 * i + 3] - gh[2 * i + 1]) * u
-                val p = Offset(lx(sx(gxw), BALL_R), ly(sy(gyw), BALL_R))
-                val rr = unit * BALL_R * (1f + k * BALL_R)
-                drawCircle(Color.White.copy(alpha = 0.10f), rr, p)
-                drawCircle(Color.White.copy(alpha = 0.45f), rr, p, style = Stroke(2f))
+                ghostWX = gh[2 * i] + (gh[2 * i + 2] - gh[2 * i]) * u
+                ghostWY = gh[2 * i + 1] + (gh[2 * i + 3] - gh[2 * i + 1]) * u
+                objId[objN] = OBJ_GHOST; objX[objN] = sx(ghostWX); objY[objN] = sy(ghostWY); objN++
             }
         }
+        objId[objN] = OBJ_BALL; objX[objN] = sx(g.x); objY[objN] = sy(g.y); objN++
+        java.util.Arrays.fill(objDone, 0, objN, false)
 
-        drawBall(g, skin, accent, ::sx, ::sy, ::lx, ::ly, unit, k, time, shX, shY)
+        fun drawObj(o: Int) {
+            objDone[o] = true
+            when (val id = objId[o]) {
+                OBJ_BALL -> drawBall(g, skin, accent, ::sx, ::sy, ::lx, ::ly, unit, k, time, shX, shY)
+                OBJ_GHOST -> {
+                    val p = Offset(lx(objX[o], BALL_R), ly(objY[o], BALL_R))
+                    val rr = unit * BALL_R * (1f + k * BALL_R)
+                    drawCircle(Color.White.copy(alpha = 0.10f), rr, p)
+                    drawCircle(Color.White.copy(alpha = 0.45f), rr, p, style = Stroke(2f))
+                }
+                else -> drawGem(id, objX[o], objY[o], ::lx, ::ly, unit, k, time, shX, shY)
+            }
+        }
 
         // Ściany – najpierw boki od najdalszych od punktu zbiegu, potem wszystkie wierzchy.
         var cnt = 0
@@ -314,6 +328,7 @@ class MazeRenderer {
             val y0 = sy(Geo.start(j)); val y1 = y0 + Geo.size(j) * unit
             val tx0 = lx(x0, 1f); val tx1 = lx(x1, 1f); val ty0 = ly(y0, 1f); val ty1 = ly(y1, 1f)
             val ax0 = lx(x0, aoH); val ax1 = lx(x1, aoH); val ay0 = ly(y0, aoH); val ay1 = ly(y1, aoH)
+            for (o in 0 until objN) if (!objDone[o] && hides(vX, vY, objX[o], objY[o], x0, y0, x1, y1)) drawObj(o)
             if (vX < x0 && lv.at(i - 1, j) != T.WALL) {
                 quad(x0, y0, x0, y1, tx0, ty1, tx0, ty0, cLeft); quad(x0, y0, x0, y1, ax0, ay1, ax0, ay0, ao)
             }
@@ -327,6 +342,9 @@ class MazeRenderer {
                 quad(x0, y1, x1, y1, tx1, ty1, tx0, ty1, cBottom); quad(x0, y1, x1, y1, ax1, ay1, ax0, ay1, ao)
             }
         }
+
+        // Czego żadna ściana nie zasłania, leży przed wszystkimi bokami.
+        for (o in 0 until objN) if (!objDone[o]) drawObj(o)
 
         // Wierzchy jedną ścieżką, potem fazowanie odsłoniętych krawędzi.
         topPath.reset(); bevelLight.reset(); bevelDark.reset()
@@ -392,6 +410,29 @@ class MazeRenderer {
         }
         bmp.setPixels(px, 0, lv.gw, 0, 0, lv.gw, lv.gh)
         return bmp.asImageBitmap()
+    }
+
+    /** Klejnot unoszący się nad podłogą, z cieniem. */
+    private fun DrawScope.drawGem(
+        q: Int, px: Float, py: Float,
+        lx: (Float, Float) -> Float, ly: (Float, Float) -> Float,
+        unit: Float, k: Float, time: Float, shX: Float, shY: Float,
+    ) {
+        val hh = 0.55f + 0.12f * sin(time * 2.4f + q)
+        drawOval(Color(0x88000000), Offset(px + shX * hh - unit * 0.16f, py + shY * hh - unit * 0.09f), Size(unit * 0.32f, unit * 0.18f))
+        val gpx = lx(px, hh); val gpy = ly(py, hh)
+        val s = unit * 0.2f * (1f + k * hh)
+        val spin = cos(time * 2f + q * 1.3f)
+        drawCircle(Brush.radialGradient(listOf(Color(0x5560F0FF), Color.Transparent), Offset(gpx, gpy), s * 2.2f), s * 2.2f, Offset(gpx, gpy))
+        path.reset()
+        path.moveTo(gpx, gpy - s * 1.25f); path.lineTo(gpx + s * spin, gpy); path.lineTo(gpx, gpy + s * 1.25f); path.lineTo(gpx - s * spin, gpy); path.close()
+        drawPath(path, Color(0xFF3CC8E0))
+        path.reset()
+        path.moveTo(gpx, gpy - s * 1.25f); path.lineTo(gpx + s * spin, gpy); path.lineTo(gpx, gpy); path.close()
+        drawPath(path, Color(0xFFBFFBFF))
+        path.reset()
+        path.moveTo(gpx, gpy + s * 1.25f); path.lineTo(gpx - s * spin, gpy); path.lineTo(gpx, gpy); path.close()
+        drawPath(path, Color(0xFF1E7F96))
     }
 
     private fun DrawScope.quad(ax: Float, ay: Float, bx: Float, by: Float, cx: Float, cy: Float, dx: Float, dy: Float, c: Color) {
@@ -471,6 +512,9 @@ class MazeRenderer {
     }
 
     companion object {
+        private const val OBJ_BALL = -1
+        private const val OBJ_GHOST = -2
+
         /** Rozmieszczenie plamek na kuli (wektory jednostkowe, ściany sześcianu). */
         private val SPOTS = floatArrayOf(1f, 0f, 0f, -1f, 0f, 0f, 0f, 1f, 0f, 0f, -1f, 0f, 0f, 0f, 1f, 0f, 0f, -1f)
 

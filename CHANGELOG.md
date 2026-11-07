@@ -1,5 +1,13 @@
 # Zmiany
 
+## 1.3.0
+
+- Kulka nie wjeżdża już optycznie pod ściany: gdy dotyka ściany od Twojej strony, jest rysowana przed nią, a zasłaniają ją tylko ściany, które naprawdę stoją między nią a kamerą. Podłoga i podstawy ścian leżą teraz na jednym poziomie. To samo dotyczy klejnotów i ducha rekordu.
+- Nowy, prostszy ekran główny: wytłoczony napis, jeden duży przycisk „Graj” i siatka trybów. Karty przechylają się w 3D razem z telefonem i wjeżdżają z głębi przy starcie.
+- Przyciski jak fizyczne płytki – wciskają się pod palcem. Panele w stylu przyciemnionego szkła.
+- Czytelniejszy pasek w grze: pauza, nazwa i duży czas pośrodku, klejnoty i życia w jednej kapsule.
+- Pauza i wynik wjeżdżają w 3D, gwiazdki wyskakują po kolei i świecą.
+
 ## 1.2.2
 
 - Bez żadnych wzmianek o GitHubie w aplikacji: nowy adres serwera aktualizacji, komunikaty błędów bez nazw zewnętrznych serwerów.
