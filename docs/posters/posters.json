@@ -1,0 +1,23 @@
+{
+  "slug": "open3dmaze",
+  "name": "Open3Dmaze",
+  "label": "gra · labirynt 3D sterowany pochyleniem",
+  "icon": "icon.png",
+  "url": "https://redzikowski.com/portfolio/open3dmaze",
+  "posters": [
+    {
+      "platform": "android",
+      "file": "android.png",
+      "title": "Przechyl telefon, *ściany ożyją*",
+      "lead": "Kulka toczy się tam, gdzie pochylisz telefon, a ściany labiryntu wyrastają w stronę gracza i przechylają się razem z ekranem.",
+      "shots": [
+        { "src": "../screenshots/android/01-menu.png", "caption": "Tryby gry" },
+        { "src": "../screenshots/android/02-gra.png", "caption": "Kampania" },
+        { "src": "../screenshots/android/04-pulapki.png", "caption": "Pułapki" },
+        { "src": "../screenshots/android/03-wlasny.png", "caption": "Własny labirynt" }
+      ],
+      "features": ["5 światów, 60 poziomów", "labirynt dnia", "tryb bez końca", "dziury, lód i portale", "Mrok i Zen", "osiągnięcia"],
+      "meta": "Android 10 lub nowszy"
+    }
+  ]
+}

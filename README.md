@@ -1,5 +1,13 @@
 # Open3Dmaze
 
+<!-- posters:start -->
+<p align="center">
+  <img src="docs/posters/android.png" alt="Open3Dmaze – Android" width="460">
+</p>
+
+<p align="center"><a href="https://redzikowski.com/portfolio/open3dmaze">redzikowski.com/portfolio/open3dmaze</a></p>
+<!-- posters:end -->
+
 Labirynt na Androida, w którym sterujesz kulką, pochylając telefon. Plansza jest płaska,
 ale ściany są bryłami: wyrastają w stronę gracza i przechylają się razem z telefonem,
 więc labirynt wygląda jak trójwymiarowy.
